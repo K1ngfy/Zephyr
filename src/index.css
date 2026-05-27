@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+.zephyr-markdown p {
+  margin-bottom: 0.5rem;
+}
+.zephyr-markdown p:last-child {
+  margin-bottom: 0;
+}
+.zephyr-markdown strong {
+  font-weight: 600;
+  color: #111827;
+}
+.zephyr-markdown code {
+  background-color: #f3f4f6;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-family: monospace;
+  font-size: 0.875em;
+  color: #4b5563;
+}
+.zephyr-markdown ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 0.5rem;
+}
