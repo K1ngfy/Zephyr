@@ -2,8 +2,8 @@
 
 export const storage = {
   get: async (keys: string | string[] | Record<string, any> | null): Promise<any> => {
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
-      return chrome.storage.sync.get(keys);
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      return chrome.storage.local.get(keys);
     }
     
     // Mock for web preview
@@ -25,8 +25,8 @@ export const storage = {
     return result;
   },
   set: async (items: Record<string, any>): Promise<void> => {
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
-      return chrome.storage.sync.set(items);
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      return chrome.storage.local.set(items);
     }
     
     // Mock for web preview
@@ -37,24 +37,72 @@ export const storage = {
   }
 };
 
+export const isExtension = typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
+
+type MessageListener = (req: any, sender: any, sendResponse: (res: any) => void) => void;
+const runtimeListeners: MessageListener[] = [];
+const tabsListeners: MessageListener[] = [];
+
 export const runtime = {
   openOptionsPage: () => {
-    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.openOptionsPage) {
+    if (isExtension) {
       chrome.runtime.openOptionsPage();
     } else {
       console.log("[Mock Chrome] openOptionsPage called.");
     }
   },
-  sendMessage: async (message: any) => {
-    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+  sendMessage: (message: any) => {
+    if (isExtension) {
       return chrome.runtime.sendMessage(message);
     }
-    console.log("[Mock Chrome] sendMessage:", message);
-    return { status: 'mock' };
+    console.log("[Mock Chrome] runtime.sendMessage:", message);
+    runtimeListeners.forEach(l => l(message, { tab: { id: 1 } }, () => {}));
+    return Promise.resolve({ status: 'mock' });
   },
-  addMessageListener: (callback: any) => {
-    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
-      chrome.runtime.onMessage.addListener(callback);
+  onMessage: {
+    addListener: (callback: MessageListener) => {
+      if (isExtension) {
+        chrome.runtime.onMessage.addListener(callback);
+      } else {
+        runtimeListeners.push(callback);
+      }
+    },
+    removeListener: (callback: MessageListener) => {
+      if (isExtension) {
+        chrome.runtime.onMessage.removeListener(callback);
+      } else {
+        const i = runtimeListeners.indexOf(callback);
+        if (i >= 0) runtimeListeners.splice(i, 1);
+      }
     }
   }
-}
+};
+
+export const tabs = {
+  sendMessage: (tabId: number, message: any) => {
+    if (isExtension) {
+      return chrome.tabs.sendMessage(tabId, message);
+    }
+    console.log("[Mock Chrome] tabs.sendMessage:", message);
+    tabsListeners.forEach(l => l(message, { tab: { id: 1 } }, () => {}));
+    return Promise.resolve();
+  },
+  onMessage: {
+    addListener: (callback: MessageListener) => {
+      if (isExtension) {
+        // Technically content scripts listen on runtime.onMessage, not tabs.onMessage
+        chrome.runtime.onMessage.addListener(callback);
+      } else {
+        tabsListeners.push(callback);
+      }
+    },
+    removeListener: (callback: MessageListener) => {
+      if (isExtension) {
+        chrome.runtime.onMessage.removeListener(callback);
+      } else {
+        const i = tabsListeners.indexOf(callback);
+        if (i >= 0) tabsListeners.splice(i, 1);
+      }
+    }
+  }
+};

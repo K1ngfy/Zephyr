@@ -1,0 +1,394 @@
+import React, { useState, useEffect } from 'react';
+import { X, Sparkles, MessageSquareText, Bookmark, MessageCircle, Play, Trash2, Send, Loader2, ArrowRightLeft, Languages } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import { storage, runtime } from '../lib/chrome';
+
+interface SidebarProps {
+  initialTab?: 'chat' | 'explain' | 'favorites' | 'translate';
+  
+  // Explain Props
+  explainText: string;
+  explainLlmOutput: string;
+  explainTtsChunks?: string[];
+
+  // Translate Props
+  translateText?: string;
+  translateLlmOutput?: string;
+  translateMode?: 'en2zh' | 'zh2en';
+  onTranslateModeChange?: (mode: 'en2zh' | 'zh2en') => void;
+  onTranslateChange?: (text: string) => void;
+  onTranslateTrigger?: () => void;
+  
+  // Handlers
+  onClose: () => void;
+  playTTS: (chunks: string[], text?: string) => void;
+}
+
+export default function Sidebar({ 
+  initialTab = 'chat', 
+  explainText, 
+  explainLlmOutput, 
+  explainTtsChunks = [], 
+  translateText = '',
+  translateLlmOutput = '',
+  translateMode = 'en2zh',
+  onTranslateModeChange,
+  onTranslateChange,
+  onTranslateTrigger,
+  onClose, 
+  playTTS 
+}: SidebarProps) {
+  const [activeTab, setActiveTab] = useState<'chat' | 'explain' | 'favorites' | 'translate'>(initialTab);
+  
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+  
+  // Favorites State
+  const [favorites, setFavorites] = useState<any[]>([]);
+  const [favFilter, setFavFilter] = useState<'all' | 'explain' | 'read'>('all');
+
+  const isExplainSaved = favorites.some(f => f.text === explainText && f.explain === explainLlmOutput);
+
+  // Chat State
+  const [chatInput, setChatInput] = useState('');
+  const [chatMessages, setChatMessages] = useState<{role: string, content: string}[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  useEffect(() => {
+    storage.get(['zephyr_favorites']).then(res => {
+      if (res.zephyr_favorites) {
+        setFavorites(res.zephyr_favorites);
+      }
+    });
+
+    const handleStorageChange = (changes: any, areaName: string) => {
+       if (areaName === 'local' && changes.zephyr_favorites) {
+          setFavorites(changes.zephyr_favorites.newValue || []);
+       }
+    };
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+       chrome.storage.onChanged.addListener(handleStorageChange);
+    }
+
+    const handleMsg = (req: any) => {
+      if (req.type === 'LLM_CHUNK' && req.taskId === 'chat') {
+        setChatMessages(prev => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === 'assistant') {
+            return [...prev.slice(0, -1), { ...last, content: last.content + req.chunk }];
+          } else {
+            return [...prev, { role: 'assistant', content: req.chunk }];
+          }
+        });
+      } else if (req.type === 'LLM_DONE' && req.taskId === 'chat') {
+        setChatLoading(false);
+      }
+    };
+    runtime.onMessage.addListener(handleMsg);
+    return () => {
+      runtime.onMessage.removeListener(handleMsg);
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+         chrome.storage.onChanged.removeListener(handleStorageChange);
+      }
+    };
+  }, []);
+
+  const handleSaveExplain = async () => {
+    if (!explainText) return;
+    
+    if (isExplainSaved) {
+       const newFavs = favorites.filter(f => !(f.text === explainText && f.explain === explainLlmOutput));
+       setFavorites(newFavs);
+       await storage.set({ zephyr_favorites: newFavs });
+    } else {
+       const newFavs = [{
+         text: explainText,
+         explain: explainLlmOutput,
+         audioChunks: explainTtsChunks,
+         date: new Date().toISOString()
+       }, ...favorites];
+       
+       setFavorites(newFavs);
+       await storage.set({ zephyr_favorites: newFavs });
+    }
+  };
+
+  const removeFavorite = async (favToRemove: any) => {
+    const newFavs = favorites.filter(f => f !== favToRemove);
+    setFavorites(newFavs);
+    await storage.set({ zephyr_favorites: newFavs });
+  };
+
+  const submitChat = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!chatInput.trim()) return;
+
+    if (chatInput.startsWith('/read ')) {
+      const text = chatInput.slice(6);
+      runtime.sendMessage({ type: 'TTS_START', text });
+      setChatInput('');
+      return;
+    }
+
+    const newArr = [...chatMessages, { role: 'user', content: chatInput }];
+    setChatMessages(newArr);
+    setChatInput('');
+    setChatLoading(true);
+
+    const prompt = [{ role: 'system', content: 'You are an English tutor assistant. Keep answers brief (under 50 words) and helpful.' }, ...newArr];
+    runtime.sendMessage({ type: 'LLM_COMPLETION', messages: prompt, taskId: 'chat' });
+  };
+
+  return (
+    <>
+      <div 
+        className="fixed inset-0 bg-black/5 z-[2147483640] transition-opacity duration-300" 
+        onClick={onClose}
+      />
+      
+      <div 
+        className="fixed top-0 bottom-0 right-0 w-[420px] bg-white shadow-2xl flex flex-col z-[2147483647] font-sans animate-in slide-in-from-right duration-300 border-l border-[#F5F5F7]"
+      >
+        <div className="p-3 border-b border-[#F5F5F7] flex items-center justify-between bg-white shrink-0">
+           <div className="flex bg-[#F5F5F7] p-1 rounded-xl gap-1 overflow-x-auto">
+             <button 
+               onClick={() => setActiveTab('chat')}
+               className={`px-4 py-1.5 min-w-[70px] text-[13px] font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 ${activeTab === 'chat' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
+             >
+               聊天
+             </button>
+             <button 
+               onClick={() => setActiveTab('explain')}
+               className={`px-4 py-1.5 min-w-[70px] text-[13px] font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 ${activeTab === 'explain' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
+             >
+               解释
+             </button>
+             <button 
+               onClick={() => setActiveTab('translate')}
+               className={`px-4 py-1.5 min-w-[70px] text-[13px] font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 ${activeTab === 'translate' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
+             >
+               翻译
+             </button>
+             <button 
+               onClick={() => setActiveTab('favorites')}
+               className={`px-4 py-1.5 min-w-[70px] text-[13px] font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 ${activeTab === 'favorites' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
+             >
+               收藏
+             </button>
+           </div>
+
+           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full text-[#86868B] hover:text-[#1D1D1F] transition-colors">
+             <X className="w-5 h-5" />
+           </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto bg-white flex flex-col relative h-full">
+           {activeTab === 'chat' && (
+             <div className="flex-1 flex flex-col pt-5">
+                <div className="flex-1 overflow-y-auto px-5 space-y-4 pb-5">
+                   {chatMessages.length === 0 && (
+                     <div className="text-center text-[#86868B] text-[13px] mt-10">
+                       Need help with anything on this page? I'm listening! Type <code className="bg-[#F5F5F7] text-[#424245] px-1 py-0.5 rounded">/read txt</code> to test TTS.
+                     </div>
+                   )}
+                   {chatMessages.map((m, i) => (
+                     <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                       <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-[13px] leading-relaxed shadow-sm ${
+                         m.role === 'user' ? 'bg-[#1D1D1F] text-white border-none rounded-br-sm' : 'bg-[#F5F5F7] text-[#424245] border-none rounded-bl-sm'
+                       }`}>
+                          {m.role === 'user' ? m.content : <div className="zephyr-markdown"><ReactMarkdown>{m.content}</ReactMarkdown></div>}
+                       </div>
+                     </div>
+                   ))}
+                   {chatLoading && (
+                     <div className="flex justify-start">
+                       <div className="max-w-[85%] rounded-2xl px-4 py-3 bg-[#F5F5F7] rounded-bl-sm flex items-center gap-2 text-[#86868B] shadow-sm">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> <span className="text-[13px]">Thinking...</span>
+                       </div>
+                     </div>
+                   )}
+                </div>
+                <div className="p-4 border-t border-[#F5F5F7] bg-white shrink-0">
+                  <form onSubmit={submitChat} className="relative flex items-center">
+                    <input 
+                      type="text" 
+                      value={chatInput}
+                      onChange={e => setChatInput(e.target.value)}
+                      placeholder="Ask a question..." 
+                      className="w-full bg-[#F5F5F7] border-none rounded-xl pl-4 pr-12 py-3 text-[13px] text-[#1D1D1F] focus:ring-1 focus:ring-[#0071E3] transition-all placeholder:text-[#86868B] outline-none"
+                    />
+                    <button type="submit" disabled={!chatInput.trim() || chatLoading} className="absolute right-2 w-8 h-8 flex items-center justify-center bg-[#1D1D1F] text-white rounded-[10px] disabled:opacity-50 hover:bg-black transition-colors shadow-md">
+                      <Send className="w-3.5 h-3.5" />
+                    </button>
+                  </form>
+                </div>
+             </div>
+           )}
+
+           {activeTab === 'explain' && (
+             <div className="p-6 space-y-6">
+                {!explainText ? (
+                  <div className="text-center text-[#86868B] text-[13px] mt-10">
+                    Select text on the page and click "Explain" to see analysis here.
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-[11px] uppercase tracking-wider font-bold text-[#86868B] flex items-center gap-1.5 flex-row">
+                        <MessageSquareText className="w-3.5 h-3.5" /> Source Text
+                      </h4>
+                      <button onClick={handleSaveExplain} className={`p-1.5 rounded-full transition-colors ${isExplainSaved ? 'text-blue-500 bg-blue-50' : 'text-[#86868B] hover:bg-[#F5F5F7] hover:text-[#1D1D1F]'}`}>
+                        <Bookmark className={`w-4 h-4 ${isExplainSaved ? 'fill-current' : ''}`} />
+                      </button>
+                    </div>
+                    <div className="bg-[#F5F5F7] p-4 rounded-xl text-[14px] leading-relaxed text-[#1D1D1F] border border-gray-100 selection:bg-blue-100 shadow-sm font-medium mt-2 mb-6">
+                      "{explainText}"
+                    </div>
+
+                    <h4 className="text-[11px] uppercase tracking-wider font-bold text-[#0071E3] flex items-center gap-1.5 flex-row mb-3">
+                      <Sparkles className="w-3.5 h-3.5" /> AI Analysis
+                    </h4>
+                    <div className="text-[14px] text-[#424245] leading-relaxed zephyr-markdown selection:bg-blue-100">
+                       {explainLlmOutput === 'Thinking...' ? (
+                         <div className="flex items-center gap-2 text-[#86868B] font-medium py-2">
+                           <Loader2 className="w-4 h-4 animate-spin" /> 深思中...
+                         </div>
+                       ) : (
+                         <div className="zephyr-markdown"><ReactMarkdown>{explainLlmOutput}</ReactMarkdown></div>
+                       )}
+                    </div>
+                  </>
+                )}
+             </div>
+           )}
+
+           {activeTab === 'translate' && (
+             <div className="p-6 space-y-6 flex-1 flex flex-col h-full overflow-hidden">
+                <div className="flex bg-[#F5F5F7] p-1 rounded-xl gap-1 shrink-0">
+                  <button 
+                    onClick={() => onTranslateModeChange?.('en2zh')}
+                    className={`flex-1 py-1.5 text-[13px] font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 ${translateMode === 'en2zh' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
+                  >
+                    英译中
+                  </button>
+                  <button 
+                    onClick={() => onTranslateModeChange?.('zh2en')}
+                    className={`flex-1 py-1.5 text-[13px] font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 ${translateMode === 'zh2en' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
+                  >
+                    中译英
+                  </button>
+                </div>
+                
+                <div className="flex flex-col gap-4 flex-1">
+                  <div className="flex flex-col gap-2">
+                    <h4 className="text-[11px] uppercase tracking-wider font-bold text-[#86868B] flex items-center gap-1.5">
+                      <Languages className="w-3.5 h-3.5" /> Source Text
+                    </h4>
+                    <textarea 
+                      value={translateText}
+                      onChange={(e) => onTranslateChange?.(e.target.value)}
+                      placeholder="Enter text to translate..."
+                      className="w-full h-32 bg-[#F5F5F7] focus:bg-white p-4 rounded-xl text-[14px] leading-relaxed text-[#1D1D1F] border border-gray-100 focus:border-blue-200 outline-none resize-none transition-colors border-2 focus:ring-4 ring-blue-50/50"
+                    />
+                    <div className="flex justify-end mt-1">
+                       <button onClick={onTranslateTrigger} className="bg-[#0071E3] hover:bg-[#0077ED] text-white px-4 py-1.5 rounded-lg text-[13px] font-medium flex items-center gap-1.5 shadow-sm shadow-blue-500/20 active:opacity-80 transition-all">
+                         <Sparkles className="w-3.5 h-3.5" /> 翻译
+                       </button>
+                    </div>
+                  </div>
+
+                  {translateLlmOutput && (
+                    <div className="flex flex-col gap-2 flex-1 overflow-hidden">
+                      <h4 className="text-[11px] uppercase tracking-wider font-bold text-[#0071E3] flex items-center gap-1.5">
+                        <ArrowRightLeft className="w-3.5 h-3.5" /> Translation
+                      </h4>
+                      <div className="bg-[#F5F5F7] flex-1 min-h-0 overflow-y-auto p-4 rounded-xl border border-gray-100">
+                         <div className="text-[14px] text-[#424245] leading-relaxed zephyr-markdown selection:bg-blue-100">
+                            {translateLlmOutput === 'Thinking...' ? (
+                              <div className="flex items-center gap-2 text-[#86868B] font-medium py-2">
+                                <Loader2 className="w-4 h-4 animate-spin" /> 翻译中...
+                              </div>
+                            ) : (
+                              <div className="zephyr-markdown"><ReactMarkdown>{translateLlmOutput}</ReactMarkdown></div>
+                            )}
+                         </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+             </div>
+           )}
+
+           {activeTab === 'favorites' && (
+             <div className="p-6 space-y-4 bg-[#F5F5F7] flex-1 flex flex-col h-full overflow-hidden">
+                <div className="flex bg-white p-1 rounded-xl gap-1 shrink-0 shadow-sm border border-gray-100">
+                  <button 
+                    onClick={() => setFavFilter('all')}
+                    className={`flex-1 py-1.5 text-[12px] font-medium rounded-lg transition-all ${favFilter === 'all' ? 'bg-[#F5F5F7] text-[#1D1D1F]' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
+                  >
+                    全部
+                  </button>
+                  <button 
+                    onClick={() => setFavFilter('explain')}
+                    className={`flex-1 py-1.5 text-[12px] font-medium rounded-lg transition-all ${favFilter === 'explain' ? 'bg-[#F5F5F7] text-[#1D1D1F]' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
+                  >
+                    解释
+                  </button>
+                  <button 
+                    onClick={() => setFavFilter('read')}
+                    className={`flex-1 py-1.5 text-[12px] font-medium rounded-lg transition-all ${favFilter === 'read' ? 'bg-[#F5F5F7] text-[#1D1D1F]' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
+                  >
+                    朗读
+                  </button>
+                </div>
+                
+                <div className="flex-1 overflow-y-auto space-y-4">
+                  {favorites.filter(fav => {
+                    if (favFilter === 'explain') return !!fav.explain;
+                    if (favFilter === 'read') return !fav.explain;
+                    return true;
+                  }).length === 0 && (
+                    <div className="text-center text-[#86868B] text-[13px] mt-10">
+                      暂无相关收藏内容.
+                    </div>
+                  )}
+                  {favorites.filter(fav => {
+                    if (favFilter === 'explain') return !!fav.explain;
+                    if (favFilter === 'read') return !fav.explain;
+                    return true;
+                  }).map((fav, i) => (
+                     <div key={i} className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 space-y-3">
+                        <div className="text-[14px] font-medium text-[#1D1D1F] leading-relaxed">"{fav.text}"</div>
+                        {fav.explain && (
+                          <div className="pt-3 border-t border-gray-50 text-[13px] text-[#424245] zephyr-markdown mt-2">
+                            <div className="zephyr-markdown"><ReactMarkdown>{fav.explain}</ReactMarkdown></div>
+                          </div>
+                        )}
+                        
+                        <div className="pt-3 flex items-center gap-2">
+                          <button 
+                            onClick={() => playTTS(fav.audioChunks || [], fav.text)}
+                            className="px-3 py-1.5 flex items-center gap-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors text-[12px] font-medium"
+                          >
+                            <Play className="w-3.5 h-3.5 fill-current" /> Play Audio
+                          </button>
+                          <div className="flex-1"></div>
+                          <button onClick={() => removeFavorite(fav)} className="p-2 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                     </div>
+                  ))}
+                </div>
+             </div>
+           )}
+        </div>
+      </div>
+    </>
+  );
+}

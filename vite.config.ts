@@ -12,11 +12,10 @@ export default defineConfig(() => {
       },
     },
     build: {
+      emptyOutDir: true,
       rollupOptions: {
         input: {
           index: path.resolve(__dirname, 'index.html'),
-          background: path.resolve(__dirname, 'src/background.ts'),
-          content: path.resolve(__dirname, 'src/content.tsx'),
         },
         output: {
           entryFileNames: '[name].js',

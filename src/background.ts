@@ -30,6 +30,12 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onInstalle
     }
   });
 
+  chrome.action.onClicked.addListener((tab: any) => {
+    if (tab?.id) {
+      chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_SIDEBAR' });
+    }
+  });
+
   chrome.runtime.onMessage.addListener((request: any, sender: any, sendResponse: any) => {
     if (request.type === 'TTS_START') {
       handleTTS(request.text, sender.tab?.id).catch(err => console.error(err));
@@ -42,31 +48,52 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onInstalle
   });
 }
 
+let currentTtsAbort: AbortController | null = null;
+
 async function handleTTS(text: string, tabId?: number) {
   if (!tabId) return;
-  const config = await storage.get(['volcengineKey']);
-  if (!config.volcengineKey) {
-    chrome.tabs.sendMessage(tabId, { type: 'TTS_ERROR', error: 'API Key missing' });
+
+  if (currentTtsAbort) {
+    currentTtsAbort.abort();
+    currentTtsAbort = null;
+  }
+  currentTtsAbort = new AbortController();
+  const signal = currentTtsAbort.signal;
+  
+  const config = await storage.get(['volcengineKey', 'speechAppId', 'speechToken', 'speechCluster', 'speechVoice']);
+  
+  // Need at least appid and token for TTS
+  if (!config.speechAppId || !config.speechToken || !config.speechCluster) {
+    chrome.tabs.sendMessage(tabId, { type: 'TTS_ERROR', error: 'Speech AppID, Token, or Cluster missing' });
     return;
   }
 
   const payload = {
-    app: { appid: 'zephyr', token: 'mock', cluster: 'mock' },
-    user: { uid: 'zephyr' },
-    audio: { voice_type: 'BV700_streaming', speed_ratio: 1.0, encoding: 'mp3' },
-    request: { reqid: crypto.randomUUID(), text: text, text_type: 'plain', operation: 'query' },
+    user: { uid: 'zephyr_user' },
+    req_params: {
+      text: text,
+      speaker: config.speechVoice || 'zh_female_xiaohe_uranus_bigtts',
+      audio_params: {
+        format: 'mp3',
+        sample_rate: 24000
+      }
+    }
   };
 
   try {
+    const headers: any = {
+      'Content-Type': 'application/json',
+      'Accept': 'text/event-stream',
+      'X-Api-App-Id': config.speechAppId,
+      'X-Api-Access-Key': config.speechToken,
+      'X-Api-Resource-Id': config.speechCluster
+    };
+
     const response = await fetch('https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Api-Key': config.volcengineKey,
-        'X-Api-Resource-Id': 'seed-tts-2.0',
-        'Accept': 'text/event-stream'
-      },
-      body: JSON.stringify(payload)
+      headers: headers,
+      body: JSON.stringify(payload),
+      signal
     });
 
     if (!response.body) throw new Error('No body returned from TTS');
@@ -88,11 +115,18 @@ async function handleTTS(text: string, tabId?: number) {
           if (dataStr && dataStr !== '[DONE]') {
              try {
                const parsed = JSON.parse(dataStr);
+               if (parsed.code && parsed.code > 0) {
+                  throw new Error(`TTS API Error: ${parsed.message || parsed.code}`);
+               }
                const audioBase64 = parsed.data || parsed.audio; 
                if (audioBase64) {
                  chrome.tabs.sendMessage(tabId, { type: 'TTS_CHUNK', chunk: audioBase64 });
                }
-             } catch(e) {}
+             } catch(e: any) {
+               console.error('Error parsing TTS chunk', e);
+               chrome.tabs.sendMessage(tabId, { type: 'TTS_ERROR', error: e.toString() });
+               return; // Stop processing
+             }
           }
         }
       }
@@ -100,33 +134,64 @@ async function handleTTS(text: string, tabId?: number) {
     chrome.tabs.sendMessage(tabId, { type: 'TTS_DONE' });
 
   } catch (error: any) {
+    if (error.name === 'AbortError') return;
     chrome.tabs.sendMessage(tabId, { type: 'TTS_ERROR', error: error.toString() });
   }
 }
 
 async function handleLLM(messages: any[], tabId?: number, taskId?: string) {
   if (!tabId) return;
-  const config = await storage.get(['volcengineKey', 'endpointId']);
-  if (!config.volcengineKey || !config.endpointId) {
-    chrome.tabs.sendMessage(tabId, { type: 'LLM_ERROR', taskId, error: 'Config missing' });
-    return;
+  const config = await storage.get([
+    'llmProvider', 
+    'volcengineKey', 'endpointId', 
+    'customLlmUrl', 'customLlmKey', 'customLlmModel'
+  ]);
+
+  const provider = config.llmProvider || 'volcengine';
+
+  let url, authKey, modelId;
+
+  if (provider === 'custom') {
+    if (!config.customLlmUrl || !config.customLlmKey || !config.customLlmModel) {
+      chrome.tabs.sendMessage(tabId, { type: 'LLM_ERROR', taskId, error: 'Custom LLM config missing' });
+      return;
+    }
+    url = config.customLlmUrl;
+    if (!url.endsWith('/chat/completions')) {
+      url += url.endsWith('/') ? 'chat/completions' : '/chat/completions';
+    }
+    authKey = config.customLlmKey;
+    modelId = config.customLlmModel;
+  } else {
+    if (!config.volcengineKey || !config.endpointId) {
+      chrome.tabs.sendMessage(tabId, { type: 'LLM_ERROR', taskId, error: 'Volcengine config missing' });
+      return;
+    }
+    url = 'https://ark.cn-beijing.volces.com/api/v3/chat/completions';
+    authKey = config.volcengineKey;
+    modelId = config.endpointId;
   }
 
   try {
-    const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${config.volcengineKey}`,
+        'Authorization': `Bearer ${authKey}`,
       },
       body: JSON.stringify({
-        model: config.endpointId, // e.g. ep-202xxxxxxxx
+        model: modelId,
         messages: messages,
         stream: true
       })
     });
 
     if (!response.body) throw new Error('No body returned from LLM');
+    if (!response.ok) {
+       const text = await response.text();
+       throw new Error(`HTTP ${response.status}: ${text}`);
+    }
+
     const reader = response.body.getReader();
     const decoder = new TextDecoder('utf-8');
     let buffer = '';

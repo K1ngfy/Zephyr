@@ -2,60 +2,74 @@
  * AudioStreamer manages MP3 base64 chunks for gapless sequential playback.
  */
 export class AudioStreamer {
-  private queue: string[] = [];
-  private isPlaying = false;
   private audio = new Audio();
-  private onFinished?: () => void;
+  private buffer: string[] = [];
+  private isDone = false;
+  private isPlaying = false;
   public onStateChange?: (state: 'idle' | 'playing') => void;
 
   constructor() {
     this.audio.onended = () => {
-      this.playNext();
+      this.isPlaying = false;
+      this.onStateChange?.('idle');
     };
     this.audio.onerror = (e) => {
       console.error('Audio playback error', e);
-      this.playNext();
+      this.isPlaying = false;
+      this.onStateChange?.('idle');
     };
   }
 
   addChunk(base64: string) {
-    // Determine mime based on string signature or assume mp3
-    this.queue.push(`data:audio/mp3;base64,${base64}`);
-    if (!this.isPlaying) {
-      this.playNext();
+    this.buffer.push(base64);
+    if (this.isDone && !this.isPlaying) {
+      this.playBuffered();
     }
   }
 
-  private playNext() {
-    if (this.queue.length === 0) {
-      this.isPlaying = false;
-      this.onStateChange?.('idle');
-      if (this.onFinished) this.onFinished();
-      return;
+  signalDone() {
+    this.isDone = true;
+    if (!this.isPlaying && this.buffer.length > 0) {
+      this.playBuffered();
     }
-    
-    this.isPlaying = true;
-    this.onStateChange?.('playing');
-    const src = this.queue.shift();
-    if (src) {
-      this.audio.src = src;
+  }
+
+  private playBuffered() {
+    try {
+      const binaries = this.buffer.map(b => atob(b));
+      let totalLen = 0;
+      for (const bin of binaries) totalLen += bin.length;
+      
+      const bytes = new Uint8Array(totalLen);
+      let offset = 0;
+      for (const bin of binaries) {
+        for (let i = 0; i < bin.length; i++) {
+          bytes[offset++] = bin.charCodeAt(i);
+        }
+      }
+      
+      const blob = new Blob([bytes], { type: 'audio/mp3' });
+      this.audio.src = URL.createObjectURL(blob);
+      
+      this.isPlaying = true;
+      this.onStateChange?.('playing');
       this.audio.play().catch(e => {
         console.error('Play intercepted by browser', e);
-        this.playNext();
+        this.isPlaying = false;
+        this.onStateChange?.('idle');
       });
+    } catch (e) {
+      console.error('Audio buffer processing error:', e);
     }
   }
 
   stop() {
-    this.queue = [];
+    this.buffer = [];
+    this.isDone = true;
     this.audio.pause();
     this.audio.currentTime = 0;
-    this.audio.removeAttribute('src'); // clear
+    this.audio.removeAttribute('src');
     this.isPlaying = false;
     this.onStateChange?.('idle');
-  }
-
-  setFinishedCallback(cb: () => void) {
-    this.onFinished = cb;
   }
 }

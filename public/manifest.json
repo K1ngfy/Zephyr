@@ -5,6 +5,7 @@
   "description": "Minimalist English speaking and listening assistant.",
   "permissions": [
     "storage",
+    "unlimitedStorage",
     "contextMenus",
     "activeTab",
     "scripting"
@@ -14,8 +15,7 @@
     "https://ark.cn-beijing.volces.com/*"
   ],
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "service_worker": "background.js"
   },
   "content_scripts": [
     {
@@ -29,8 +29,6 @@
     "default_popup": "index.html"
   },
   "icons": {
-    "16": "icon16.png",
-    "48": "icon48.png",
-    "128": "icon128.png"
+    "128": "icon.svg"
   }
 }
