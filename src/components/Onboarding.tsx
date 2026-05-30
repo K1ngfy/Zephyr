@@ -281,7 +281,7 @@ export default function Onboarding({ onComplete }: { onComplete: (config: any) =
          {activeTab === 'tts' && (
            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
              <div className="space-y-4">
-               <h3 className="text-sm font-semibold text-[#1D1D1F] border-b border-[#F5F5F7] pb-2">语音合成与音色配置 (TTS)</h3>
+               <h3 className="text-sm font-semibold text-[#1D1D1F] border-b border-[#F5F5F7] pb-2">语音合成与音色配置 (目前仅支持字节跳动 Doubao-语音合成-2.0 模型)</h3>
                <label className="block">
                   <span className="text-[11px] uppercase tracking-widest font-semibold text-[#86868B] ml-1">Speech Appid</span>
                   <input type="text" value={appId} onChange={e => setAppId(e.target.value)} placeholder="Your TTS App ID" className="mt-1.5 w-full bg-[#F5F5F7] border-none rounded-xl px-4 py-3 text-[14px] focus:ring-1 focus:ring-[#0071E3] transition-all placeholder:text-[#86868B]/60 outline-none text-[#1D1D1F]" />
