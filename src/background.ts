@@ -16,7 +16,13 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onInstalle
     // Auto-open options if no key
     storage.get(['volcengineKey']).then((res: any) => {
       if (!res.volcengineKey) {
-        chrome.runtime.openOptionsPage();
+        try {
+          chrome.runtime.openOptionsPage().catch(() => {
+            chrome.tabs.create({ url: 'index.html' });
+          });
+        } catch (e) {
+          chrome.tabs.create({ url: 'index.html' });
+        }
       }
     });
   });
@@ -60,7 +66,7 @@ async function handleTTS(text: string, tabId?: number) {
   currentTtsAbort = new AbortController();
   const signal = currentTtsAbort.signal;
   
-  const config = await storage.get(['volcengineKey', 'speechAppId', 'speechToken', 'speechCluster', 'speechVoice']);
+  const config = await storage.get(['volcengineKey', 'speechAppId', 'speechToken', 'speechCluster', 'speechVoice', 'speechSpeed', 'speechEmotion']);
   
   // Need at least appid and token for TTS
   if (!config.speechAppId || !config.speechToken || !config.speechCluster) {
@@ -68,17 +74,25 @@ async function handleTTS(text: string, tabId?: number) {
     return;
   }
 
-  const payload = {
+  const payload: any = {
     user: { uid: 'zephyr_user' },
     req_params: {
       text: text,
       speaker: config.speechVoice || 'zh_female_xiaohe_uranus_bigtts',
+      additions: JSON.stringify({
+        disable_markdown_filter: true
+      }),
       audio_params: {
         format: 'mp3',
-        sample_rate: 24000
+        sample_rate: 24000,
+        speech_rate: Math.round(((config.speechSpeed || 1.0) - 1) * 100),
       }
     }
   };
+
+  if (config.speechEmotion && config.speechEmotion !== 'none') {
+      payload.req_params.audio_params.emotion = config.speechEmotion;
+  }
 
   try {
     const headers: any = {
@@ -115,7 +129,7 @@ async function handleTTS(text: string, tabId?: number) {
           if (dataStr && dataStr !== '[DONE]') {
              try {
                const parsed = JSON.parse(dataStr);
-               if (parsed.code && parsed.code > 0) {
+               if (parsed.code && parsed.code > 0 && parsed.code !== 1000 && parsed.message !== 'Success' && parsed.message !== 'OK') {
                   throw new Error(`TTS API Error: ${parsed.message || parsed.code}`);
                }
                const audioBase64 = parsed.data || parsed.audio; 

@@ -39,7 +39,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F7] text-[#1D1D1F] font-sans flex items-center justify-center p-8 selection:bg-blue-100 selection:text-[#0071E3]">
-      <div className="w-full max-w-xl">
+      <div className="w-full max-w-3xl">
         {(!isLlmConfigured || !config.speechAppId || !config.speechToken || !config.onboarded) ? (
           <Onboarding onComplete={(newConfig) => setConfig(newConfig)} />
         ) : (

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { Sparkles, Check, Activity, X, Cpu, Volume2, Network } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Sparkles, Check, Activity, X, Cpu, Volume2, Network, Play, Square } from 'lucide-react';
 import { storage } from '../lib/chrome';
 import { testLLMConnection, testVolcengineTTS } from '../lib/volcengine';
+import { AudioStreamer } from '../lib/audio';
 
 const VOICES = [
   { id: 'zh_female_vv_uranus_bigtts', name: 'Vivi 2.0'},
@@ -79,6 +80,17 @@ export default function Settings({ config, onUpdate }: { config: any, onUpdate: 
   const [token, setToken] = useState(config.speechToken || '');
   const [cluster, setCluster] = useState(config.speechCluster || 'seed-tts-2.0');
   const [voice, setVoice] = useState(config.speechVoice || 'zh_female_xiaohe_uranus_bigtts');
+  const [speed, setSpeed] = useState<number>(config.speechSpeed || 1.0);
+  const [emotion, setEmotion] = useState(config.speechEmotion || 'none');
+  const [testText, setTestText] = useState('Hello, Welcome to the Zephyr! 欢迎使用 Zephyr 语音阅读助手。');
+  const [ttsUsage, setTtsUsage] = useState<any>(null);
+  
+  const [ttsState, setTtsState] = useState<'idle' | 'playing'>('idle');
+  const streamerRef = useRef<AudioStreamer | null>(null);
+
+  useEffect(() => {
+     return () => streamerRef.current?.stop();
+  }, []);
 
   const [saved, setSaved] = useState(false);
 
@@ -109,19 +121,37 @@ export default function Settings({ config, onUpdate }: { config: any, onUpdate: 
   const testTTSConnection = async () => {
     setTestingTts(true);
     setTtsResult(null);
+    setTtsUsage(null);
+    streamerRef.current?.stop();
     try {
       const configObj = { 
         speechAppId: appId.trim(), 
         speechToken: token.trim(), 
         speechCluster: cluster.trim() || 'seed-tts-2.0',
-        speechVoice: voice.trim() || 'zh_female_xiaohe_uranus_bigtts'
+        speechVoice: voice.trim() || 'zh_female_xiaohe_uranus_bigtts',
+        speechSpeed: speed,
+        speechEmotion: emotion,
+        testText
       };
       const res = await testVolcengineTTS(configObj);
       setTtsResult({ success: res.ttsSuccess, error: res.ttsError });
+      if (res.usage) {
+        setTtsUsage(res.usage);
+      }
+      if (res.ttsSuccess && res.audioChunks && res.audioChunks.length > 0) {
+        streamerRef.current = new AudioStreamer();
+        streamerRef.current.onStateChange = setTtsState;
+        res.audioChunks.forEach((c: string) => streamerRef.current?.addChunk(c));
+        streamerRef.current.signalDone();
+      }
     } finally {
       setTestingTts(false);
     }
   }
+
+  const handleStopTts = () => {
+     streamerRef.current?.stop();
+  };
 
   const save = async () => {
     const newConfig = { 
@@ -135,7 +165,9 @@ export default function Settings({ config, onUpdate }: { config: any, onUpdate: 
       speechAppId: appId.trim(),
       speechToken: token.trim(),
       speechCluster: cluster.trim() || 'seed-tts-2.0',
-      speechVoice: voice.trim() || 'zh_female_xiaohe_uranus_bigtts'
+      speechVoice: voice.trim() || 'zh_female_xiaohe_uranus_bigtts',
+      speechSpeed: speed,
+      speechEmotion: emotion
     };
     await storage.set(newConfig);
     onUpdate(newConfig);
@@ -163,7 +195,7 @@ export default function Settings({ config, onUpdate }: { config: any, onUpdate: 
   };
 
   return (
-    <div className="w-[520px] mx-auto bg-white rounded-[28px] shadow-2xl shadow-gray-200/50 flex flex-col overflow-hidden border border-white h-[640px]">
+    <div className="w-[680px] mx-auto bg-white rounded-[28px] shadow-2xl shadow-gray-200/50 flex flex-col overflow-hidden border border-white max-h-[90vh]">
       <div className="p-8 pb-4 shrink-0 border-b border-[#F5F5F7]">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 bg-[#1D1D1F] rounded-xl flex items-center justify-center shadow-md">
@@ -275,7 +307,7 @@ export default function Settings({ config, onUpdate }: { config: any, onUpdate: 
 
              <div className="space-y-3">
                <h3 className="text-sm font-semibold text-[#1D1D1F] border-b border-[#F5F5F7] pb-2">选择常用音色</h3>
-               <div className="grid grid-cols-2 gap-2 h-32 overflow-y-auto pr-2">
+               <div className="grid grid-cols-2 gap-2 h-44 overflow-y-auto pr-2">
                   {VOICES.map(v => (
                      <button 
                        key={v.id} 
@@ -286,21 +318,59 @@ export default function Settings({ config, onUpdate }: { config: any, onUpdate: 
                      </button>
                   ))}
                </div>
+               <div className="flex gap-4 mt-2">
+                 <label className="block flex-1">
+                    <span className="text-[11px] uppercase tracking-widest font-semibold text-[#86868B] ml-1">Speech Speed (语速 {speed}x)</span>
+                    <input type="range" min="0.5" max="2.0" step="0.1" value={speed} onChange={e => setSpeed(parseFloat(e.target.value))} className="mt-1 w-full" />
+                 </label>
+                 <label className="block flex-1">
+                    <span className="text-[11px] uppercase tracking-widest font-semibold text-[#86868B] ml-1">Emotion (情感)</span>
+                    <select value={emotion} onChange={e => setEmotion(e.target.value)} className="mt-1.5 w-full bg-[#F5F5F7] border-none rounded-xl px-4 py-3 text-[14px] focus:ring-1 focus:ring-[#0071E3] transition-all outline-none text-[#1D1D1F]">
+                       <option value="neutral">中性 (Neutral)</option>
+                       <option value="happy">愉悦 (Happy)</option>
+                       <option value="angry">愤怒 (Angry)</option>
+                       <option value="sad">悲伤 (Sad)</option>
+                       <option value="excited">兴奋 (Excited)</option>
+                       <option value="chat">闲聊 (Chat)</option>
+                       <option value="ASMR">低语 (ASMR)</option>
+                       <option value="warm">温暖 (Warm)</option>
+                       <option value="affectionate">深情 (Affectionate)</option>
+                       <option value="Authoritative">权威 (Authoritative)</option>
+                    </select>
+                 </label>
+               </div>
              </div>
 
              <div className="pt-4 border-t border-[#F5F5F7]">
-                <button onClick={testTTSConnection} disabled={!appId || !token || !cluster || !voice || testingTts} className="w-full bg-[#F5F5F7] text-[#1D1D1F] hover:bg-gray-200 px-8 py-3 rounded-xl text-[14px] font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                  {testingTts ? <><Activity className="w-4 h-4 animate-spin"/> 测试中...</> : <><Network className="w-4 h-4"/> 连通性测试</>}
-                </button>
+               <label className="block mb-3">
+                  <span className="text-[11px] uppercase tracking-widest font-semibold text-[#86868B] ml-1">预览测试文本 (Preview Text)</span>
+                  <input type="text" value={testText} onChange={e => setTestText(e.target.value)} placeholder="Hello, Welcome to the Zephyr! 欢迎使用 Zephyr 语音阅读助手。" className="mt-1.5 w-full bg-[#F5F5F7] border-none rounded-xl px-4 py-3 text-[14px] focus:ring-1 focus:ring-[#0071E3] transition-all outline-none text-[#1D1D1F]" />
+               </label>
+               
+               <div className="flex gap-2">
+                  <button onClick={testTTSConnection} disabled={!appId || !token || !cluster || !voice || testingTts} className="flex-1 bg-[#F5F5F7] text-[#1D1D1F] hover:bg-gray-200 px-8 py-3 rounded-xl text-[14px] font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                    {testingTts ? <><Activity className="w-4 h-4 animate-spin"/> 测试合成中...</> : <><Network className="w-4 h-4"/> 连通性测试 (试听)</>}
+                  </button>
+                  <button onClick={handleStopTts} disabled={ttsState !== 'playing'} className="bg-red-50 text-red-600 hover:bg-red-100 px-8 py-3 rounded-xl text-[14px] font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                    <Square className="w-4 h-4" fill="currentColor" /> 停止播放
+                  </button>
+               </div>
 
                 {ttsResult && (
                   <div className={`mt-4 p-4 rounded-xl border flex items-start gap-3 ${ttsResult.success ? 'bg-green-50/50 border-green-100/50' : 'bg-red-50/50 border-red-100/50'}`}>
                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${ttsResult.success ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
                         {ttsResult.success ? <Check className="w-4 h-4"/> : <X className="w-4 h-4"/>}
                      </div>
-                     <div>
+                     <div className="flex-1 overflow-hidden">
                         <div className={`text-[14px] font-medium ${ttsResult.success ? 'text-green-800' : 'text-red-800'}`}>{ttsResult.success ? '测试通过' : '测试失败'}</div>
-                        <div className={`text-[12px] mt-1 ${ttsResult.success ? 'text-green-600' : 'text-red-600'}`}>{ttsResult.success ? '语音合成连通成功' : ttsResult.error}</div>
+                        <div className={`text-[12px] mt-1 break-all ${ttsResult.success ? 'text-green-600' : 'text-red-600'}`}>{ttsResult.success ? '语音合成连通成功，开始播放音频' : ttsResult.error}</div>
+                        
+                        {ttsResult.success && ttsUsage && (
+                          <div className="mt-3 p-3 bg-white/60 rounded-lg text-[12px] font-mono text-[#424245]">
+                            <div className="font-semibold mb-1 text-[11px] text-[#86868B] uppercase tracking-wider">Usage Info</div>
+                            <div>{Object.entries(ttsUsage).map(([k,v]) => <div key={k}>{k}: {String(v)}</div>)}</div>
+                          </div>
+                        )}
                      </div>
                   </div>
                 )}

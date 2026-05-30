@@ -74,6 +74,7 @@ export async function testLLMConnection(config: any) {
 export async function testVolcengineTTS(config: any) {
   let ttsSuccess = false;
   let ttsError = '';
+  let usage: any = null;
   // Test TTS
   try {
     if (!config.speechAppId || !config.speechToken || !config.speechCluster) {
@@ -84,20 +85,29 @@ export async function testVolcengineTTS(config: any) {
         'Accept': 'text/event-stream',
         'X-Api-App-Id': config.speechAppId,
         'X-Api-Access-Key': config.speechToken,
-        'X-Api-Resource-Id': config.speechCluster
+        'X-Api-Resource-Id': config.speechCluster,
+        'X-Control-Require-Usage-Tokens-Return': '*',
       };
 
-      const payload = {
+      const payload: any = {
         user: { uid: 'zephyr_test' },
         req_params: {
-          text: 'test',
+          text: config.testText || 'Hello, Welcome to the Zephyr! 欢迎使用 Zephyr 语音阅读助手。',
           speaker: config.speechVoice || 'zh_female_xiaohe_uranus_bigtts',
+          additions: JSON.stringify({
+            disable_markdown_filter: true
+          }),
           audio_params: {
             format: 'mp3',
-            sample_rate: 24000
+            sample_rate: 24000,
+            speech_rate: Math.round(((config.speechSpeed || 1.0) - 1) * 100),
           }
         }
       };
+
+      if (config.speechEmotion && config.speechEmotion !== 'none') {
+         payload.req_params.audio_params.emotion = config.speechEmotion;
+      }
 
       const res = await fetch('https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse', {
         method: 'POST',
@@ -114,25 +124,58 @@ export async function testVolcengineTTS(config: any) {
              ttsError = `HTTP ${res.status}: ${text}`;
          }
       } else if (res.body) {
-         // Read the stream to verify first chunk is not an error
+         // Read the stream to verify chunks and find usage
          const reader = res.body.getReader();
          const decoder = new TextDecoder('utf-8');
-         const { value, done } = await reader.read();
-         if (value) {
-            const chunkText = decoder.decode(value);
-            const dataMatch = chunkText.match(/data:\s*({.+?})/);
-            if (dataMatch && dataMatch[1]) {
-               const parsed = JSON.parse(dataMatch[1]);
-               if (parsed.code && parsed.code > 0) {
-                 ttsError = `TTS Error: ${parsed.message || parsed.code}`;
-               } else {
-                 ttsSuccess = true;
-               }
-            } else {
-               ttsSuccess = true; // no err parsing found
-            }
-         } else {
-            ttsSuccess = true;
+         let buffer = '';
+
+         // To play audio, we collect chunks
+         const audioChunks: string[] = [];
+
+         while (true) {
+             const { value, done } = await reader.read();
+             if (done) break;
+             if (value) {
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+                
+                for (const line of lines) {
+                   if (line.startsWith('data:')) {
+                      const dataStr = line.slice(5).trim();
+                      if (dataStr && dataStr !== '[DONE]') {
+                         try {
+                           const parsed = JSON.parse(dataStr);
+                           if (parsed.code && parsed.code > 0 && parsed.code !== 1000 && parsed.message !== 'Success' && parsed.message !== 'OK') {
+                             ttsError = `TTS Error: ${parsed.message || parsed.code}`;
+                             break;
+                           } else {
+                             ttsSuccess = true;
+                             const audioBase64 = parsed.data || parsed.audio; 
+                             if (audioBase64) {
+                               audioChunks.push(audioBase64);
+                             }
+                             if (parsed.usage) {
+                               usage = { ...(usage || {}), ...parsed.usage };
+                             }
+                             if (parsed.addition?.usage) {
+                               usage = { ...(usage || {}), ...parsed.addition.usage };
+                             }
+                             if (parsed.additions?.usage) {
+                               usage = { ...(usage || {}), ...parsed.additions.usage };
+                             }
+                           }
+                         } catch (e) {
+                           // ignore parse error if any
+                         }
+                      }
+                   }
+                }
+             }
+         }
+         
+         if (ttsSuccess) {
+            return { ttsSuccess, ttsError, usage, audioChunks };
          }
       } else {
          ttsSuccess = true;
@@ -142,5 +185,5 @@ export async function testVolcengineTTS(config: any) {
     ttsError = e.toString();
   }
 
-  return { ttsSuccess, ttsError };
+  return { ttsSuccess, ttsError, usage, audioChunks: [] };
 }

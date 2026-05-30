@@ -281,6 +281,7 @@ export default function ContentApp() {
              }
           }}
           onClose={() => setSidebarOpen(false)}
+          ttsState={ttsState}
           playTTS={(chunks, text) => {
             streamerRef.current?.stop();
             streamerRef.current = new AudioStreamer();
