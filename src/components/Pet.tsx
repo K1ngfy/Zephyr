@@ -40,7 +40,7 @@ const CapybaraSVG = ({ isRightSide }: { isRightSide: boolean }) => (
   </svg>
 );
 
-export default function Pet({ ttsState, onClick }: { ttsState: 'idle' | 'playing', onClick: () => void }) {
+export default function Pet({ ttsState, onClick, onCloseClick }: { ttsState: 'idle' | 'playing', onClick: () => void, onCloseClick?: () => void }) {
   // Postion initialized off-screen to avoid flash before effect
   const [pos, setPos] = useState({ x: -1, y: -1 });
   const [isHovered, setIsHovered] = useState(false);
@@ -161,6 +161,22 @@ export default function Pet({ ttsState, onClick }: { ttsState: 'idle' | 'playing
     >
       <CapybaraSVG isRightSide={isRightSide} />
       
+      {onCloseClick && (
+        <div 
+          className={`absolute top-0 ${isRightSide ? 'left-0' : 'right-0'} w-6 h-6 bg-white shadow-md rounded-full flex items-center justify-center transition-opacity hover:bg-red-50 text-gray-400 hover:text-red-500 ${isHovered && !isDragging ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onCloseClick();
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </div>
+      )}
+
       {ttsState === 'playing' && (
         <div className={`absolute top-2 ${isRightSide ? 'left-2' : 'right-2'} flex gap-1 bg-[#1D1D1F]/80 p-1.5 rounded-full backdrop-blur-sm pointer-events-none`}>
            <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />

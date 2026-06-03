@@ -35,20 +35,30 @@ export default function ContentApp() {
 
   const [showPetIcon, setShowPetIcon] = useState(true);
   const [shortcutKey, setShortcutKey] = useState('Alt+Z');
+  
+  const [hiddenDomains, setHiddenDomains] = useState<string[]>([]);
+  const [tempHiddenPet, setTempHiddenPet] = useState(false);
+  const [showPetCloseDialog, setShowPetCloseDialog] = useState(false);
 
   useEffect(() => {
      try {
-       storage.get(['zephyr_config']).then((res: any) => {
-         const config = res.zephyr_config || {};
-         setShowPetIcon(config.showPetIcon !== false);
-         setShortcutKey(config.shortcutKey || 'Alt+Z');
+       storage.get(['showPetIcon', 'shortcutKey', 'zephyr_hidden_domains']).then((res: any) => {
+         setShowPetIcon(res.showPetIcon !== false);
+         setShortcutKey(res.shortcutKey || 'Alt+Z');
+         setHiddenDomains(res.zephyr_hidden_domains || []);
        }).catch((e) => console.error("Storage error:", e));
        
        const handleStorageChange = (changes: any, areaName: string) => {
-         if (areaName === 'local' && changes.zephyr_config) {
-           const config = changes.zephyr_config.newValue || {};
-           setShowPetIcon(config.showPetIcon !== false);
-           setShortcutKey(config.shortcutKey || 'Alt+Z');
+         if (areaName === 'local') {
+           if (changes.showPetIcon) {
+             setShowPetIcon(changes.showPetIcon.newValue !== false);
+           }
+           if (changes.shortcutKey) {
+             setShortcutKey(changes.shortcutKey.newValue || 'Alt+Z');
+           }
+           if (changes.zephyr_hidden_domains) {
+             setHiddenDomains(changes.zephyr_hidden_domains.newValue || []);
+           }
          }
        };
        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
@@ -376,8 +386,55 @@ export default function ContentApp() {
         />
       )}
 
-      {showPetIcon && (
-        <Pet ttsState={ttsState} onClick={popSidebarChat} />
+      {showPetIcon && !tempHiddenPet && !hiddenDomains.includes(window.location.hostname) && (
+        <>
+          <Pet 
+            ttsState={ttsState} 
+            onClick={popSidebarChat} 
+            onCloseClick={() => setShowPetCloseDialog(true)} 
+          />
+          {showPetCloseDialog && (
+            <div className="fixed inset-0 z-[2147483647] flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)', pointerEvents: 'auto' }}>
+              <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-[320px] w-full mx-auto" onClick={e => e.stopPropagation()}>
+                <h3 className="text-[#1D1D1F] font-semibold text-lg mb-2">关闭水豚助手</h3>
+                <p className="text-[#86868B] text-sm mb-6 leading-relaxed">
+                  您希望临时隐藏，还是在该网站上永久隐藏水豚？您随时可以在插件的设置页面重新开启。
+                </p>
+                <div className="space-y-3">
+                  <button 
+                    onClick={() => {
+                      setTempHiddenPet(true);
+                      setShowPetCloseDialog(false);
+                    }}
+                    className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-[#1D1D1F] rounded-xl font-medium transition-colors text-sm"
+                  >
+                    仅本次隐藏
+                  </button>
+                  <button 
+                    onClick={() => {
+                       const currentDomain = window.location.hostname;
+                       const newHiddenDomains = [...hiddenDomains, currentDomain];
+                       setHiddenDomains(newHiddenDomains);
+                       try {
+                           storage.set({ zephyr_hidden_domains: newHiddenDomains });
+                       } catch (e) { console.error(e); }
+                       setShowPetCloseDialog(false);
+                    }}
+                    className="w-full py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-medium transition-colors text-sm"
+                  >
+                    在该网站 ({window.location.hostname}) 永久隐藏
+                  </button>
+                  <button 
+                    onClick={() => setShowPetCloseDialog(false)}
+                    className="w-full py-2.5 text-[#86868B] hover:text-[#1D1D1F] font-medium transition-colors text-sm mt-2"
+                  >
+                    取消
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </  >
       )}
     </div>
   );

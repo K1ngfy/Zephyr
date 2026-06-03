@@ -65,6 +65,13 @@ export default function Settings({ config, onUpdate }: { config: any, onUpdate: 
 
   const [showPetIcon, setShowPetIcon] = useState(config.showPetIcon !== false);
   const [shortcutKey, setShortcutKey] = useState(config.shortcutKey || 'Alt+Z');
+  const [hiddenDomains, setHiddenDomains] = useState<string[]>([]);
+
+  useEffect(() => {
+    storage.get(['zephyr_hidden_domains']).then(res => {
+      setHiddenDomains(res.zephyr_hidden_domains || []);
+    });
+  }, []);
 
   const [llmProvider, setLlmProvider] = useState<'volcengine' | 'custom'>(config.llmProvider || 'volcengine');
   
@@ -175,6 +182,7 @@ export default function Settings({ config, onUpdate }: { config: any, onUpdate: 
       speechEmotion: emotion
     };
     await storage.set(newConfig);
+    await storage.set({ zephyr_hidden_domains: hiddenDomains });
     onUpdate(newConfig);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -403,6 +411,26 @@ export default function Settings({ config, onUpdate }: { config: any, onUpdate: 
                     </span>
                   </div>
                </label>
+               
+               {hiddenDomains.length > 0 && (
+                 <div className="mt-4 p-4 bg-[#F5F5F7] rounded-xl">
+                   <div className="text-[14px] font-semibold text-[#1D1D1F] mb-3">永久隐藏的网站</div>
+                   <div className="space-y-2 max-h-[150px] overflow-y-auto pr-2">
+                     {hiddenDomains.map((domain, idx) => (
+                       <div key={idx} className="flex items-center justify-between bg-white px-3 py-2 rounded-lg shadow-sm">
+                         <span className="text-[13px] text-[#424245] truncate mr-3">{domain}</span>
+                         <button 
+                           onClick={() => setHiddenDomains(prev => prev.filter(d => d !== domain))}
+                           className="text-[#86868B] hover:text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors"
+                           title="移除隐藏"
+                         >
+                           <X className="w-3.5 h-3.5" />
+                         </button>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               )}
                
                <label className="block mt-4">
                   <span className="text-[11px] uppercase tracking-widest font-semibold text-[#86868B] ml-1">呼出侧边栏快捷键</span>
