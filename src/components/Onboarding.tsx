@@ -206,10 +206,10 @@ export default function Onboarding({ onComplete }: { onComplete: (config: any) =
         
         <div className="flex justify-between items-center bg-[#F5F5F7] p-1.5 rounded-2xl">
            <button onClick={() => setActiveTab('llm')} className={`flex-1 py-1.5 text-[13px] font-medium rounded-xl flex items-center justify-center gap-1.5 transition-all ${activeTab === 'llm' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}>
-              <Cpu className="w-4 h-4" /> 1: 语言模型
+              <Cpu className="w-4 h-4" /> 1: 大语言模型配置
            </button>
            <button onClick={() => setActiveTab('tts')} disabled={!llmResult?.success} className={`flex-1 py-1.5 text-[13px] font-medium rounded-xl flex items-center justify-center gap-1.5 transition-all ${activeTab === 'tts' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F] disabled:opacity-50 disabled:cursor-not-allowed'}`}>
-              <Volume2 className="w-4 h-4" /> 2: 语音合成
+              <Volume2 className="w-4 h-4" /> 2:模型配置
            </button>
            <button onClick={() => setActiveTab('general')} disabled={!ttsResult?.success} className={`flex-1 py-1.5 text-[13px] font-medium rounded-xl flex items-center justify-center gap-1.5 transition-all ${activeTab === 'general' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F] disabled:opacity-50 disabled:cursor-not-allowed'}`}>
               <Settings2 className="w-4 h-4" /> 3: 常规设置

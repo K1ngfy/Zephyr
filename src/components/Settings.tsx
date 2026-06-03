@@ -213,10 +213,10 @@ export default function Settings({ config, onUpdate }: { config: any, onUpdate: 
         
         <div className="flex justify-between items-center bg-[#F5F5F7] p-1.5 rounded-2xl">
            <button onClick={() => setActiveTab('llm')} className={`flex-1 py-1.5 text-[13px] font-medium rounded-xl flex items-center justify-center gap-1.5 transition-all ${activeTab === 'llm' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}>
-              <Cpu className="w-4 h-4" /> 大模型
+              <Cpu className="w-4 h-4" /> 大语言模型配置
            </button>
            <button onClick={() => setActiveTab('tts')} className={`flex-1 py-1.5 text-[13px] font-medium rounded-xl flex items-center justify-center gap-1.5 transition-all ${activeTab === 'tts' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}>
-              <Volume2 className="w-4 h-4" /> 语音合成
+              <Volume2 className="w-4 h-4" /> 语音模型配置
            </button>
            <button onClick={() => setActiveTab('general')} className={`flex-1 py-1.5 text-[13px] font-medium rounded-xl flex items-center justify-center gap-1.5 transition-all ${activeTab === 'general' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}>
               <Settings2 className="w-4 h-4" /> 常规设置
@@ -229,7 +229,7 @@ export default function Settings({ config, onUpdate }: { config: any, onUpdate: 
            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
              <div className="space-y-4">
                <div className="flex items-center justify-between border-b border-[#F5F5F7] pb-2">
-                 <h3 className="text-sm font-semibold text-[#1D1D1F]">语言模型 (LLM)</h3>
+                 <h3 className="text-sm font-semibold text-[#1D1D1F]">大语言模型 (LLM)</h3>
                  <select 
                    value={llmProvider === 'volcengine' ? 'volcengine' : presetKey} 
                    onChange={handleProviderChange}
