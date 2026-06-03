@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, Check, Activity, X, Cpu, Volume2, Network, Play, Square } from 'lucide-react';
+import { Sparkles, Check, Activity, X, Cpu, Volume2, Network, Play, Square, Settings2 } from 'lucide-react';
 import { storage } from '../lib/chrome';
 import { testLLMConnection, testVolcengineTTS } from '../lib/volcengine';
 import { AudioStreamer } from '../lib/audio';
@@ -61,7 +61,10 @@ const PRESETS: Record<string, { url: string, model: string, name: string }> = {
 };
 
 export default function Onboarding({ onComplete }: { onComplete: (config: any) => void }) {
-  const [activeTab, setActiveTab] = useState<'llm' | 'tts'>('llm');
+  const [activeTab, setActiveTab] = useState<'llm' | 'tts' | 'general'>('llm');
+
+  const [showPetIcon, setShowPetIcon] = useState(true);
+  const [shortcutKey, setShortcutKey] = useState('Alt+Z');
 
   const [llmProvider, setLlmProvider] = useState<'volcengine' | 'custom'>('volcengine');
   const [presetKey, setPresetKey] = useState<string>('custom');
@@ -151,6 +154,8 @@ export default function Onboarding({ onComplete }: { onComplete: (config: any) =
   const save = async () => {
     const newConfig = { 
       llmProvider,
+      showPetIcon,
+      shortcutKey: shortcutKey.trim(),
       volcengineKey: key.trim(), 
       endpointId: ep.trim(), 
       customLlmUrl: customUrl.trim(),
@@ -188,7 +193,7 @@ export default function Onboarding({ onComplete }: { onComplete: (config: any) =
   };
 
   return (
-    <div className="w-[680px] mx-auto bg-white rounded-[28px] shadow-2xl shadow-gray-200/50 flex flex-col overflow-hidden border border-white max-h-[90vh]">
+    <div className="w-full max-w-[800px] mx-auto bg-white rounded-[28px] shadow-2xl shadow-gray-200/50 flex flex-col overflow-hidden border border-white max-h-[90vh]">
       <div className="p-8 pb-4 shrink-0 border-b border-[#F5F5F7]">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 bg-[#1D1D1F] rounded-xl flex items-center justify-center shadow-md">
@@ -200,11 +205,14 @@ export default function Onboarding({ onComplete }: { onComplete: (config: any) =
         </div>
         
         <div className="flex justify-between items-center bg-[#F5F5F7] p-1.5 rounded-2xl">
-           <button onClick={() => setActiveTab('llm')} className={`flex-1 py-2 text-[13px] font-medium rounded-xl flex items-center justify-center gap-2 transition-all ${activeTab === 'llm' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}>
-              <Cpu className="w-4 h-4" /> 步骤 1: 语言模型
+           <button onClick={() => setActiveTab('llm')} className={`flex-1 py-1.5 text-[13px] font-medium rounded-xl flex items-center justify-center gap-1.5 transition-all ${activeTab === 'llm' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}>
+              <Cpu className="w-4 h-4" /> 1: 语言模型
            </button>
-           <button onClick={() => setActiveTab('tts')} disabled={!llmResult?.success} className={`flex-1 py-2 text-[13px] font-medium rounded-xl flex items-center justify-center gap-2 transition-all ${activeTab === 'tts' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F] disabled:opacity-50 disabled:cursor-not-allowed'}`}>
-              <Volume2 className="w-4 h-4" /> 步骤 2: 语音合成
+           <button onClick={() => setActiveTab('tts')} disabled={!llmResult?.success} className={`flex-1 py-1.5 text-[13px] font-medium rounded-xl flex items-center justify-center gap-1.5 transition-all ${activeTab === 'tts' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F] disabled:opacity-50 disabled:cursor-not-allowed'}`}>
+              <Volume2 className="w-4 h-4" /> 2: 语音合成
+           </button>
+           <button onClick={() => setActiveTab('general')} disabled={!ttsResult?.success} className={`flex-1 py-1.5 text-[13px] font-medium rounded-xl flex items-center justify-center gap-1.5 transition-all ${activeTab === 'general' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F] disabled:opacity-50 disabled:cursor-not-allowed'}`}>
+              <Settings2 className="w-4 h-4" /> 3: 常规设置
            </button>
         </div>
       </div>
@@ -367,6 +375,51 @@ export default function Onboarding({ onComplete }: { onComplete: (config: any) =
                      </div>
                   </div>
                 )}
+             </div>
+           </div>
+         )}
+
+         {activeTab === 'general' && (
+           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+             <div className="space-y-4">
+               <h3 className="text-sm font-semibold text-[#1D1D1F] border-b border-[#F5F5F7] pb-2">偏好设置 (Preferences)</h3>
+               
+               <label className="flex items-center justify-between p-4 bg-[#F5F5F7] rounded-xl cursor-pointer">
+                  <div>
+                    <span className="text-[14px] font-semibold text-[#1D1D1F] block">显示桌面宠物</span>
+                    <span className="text-[12px] text-[#86868B] mt-0.5">在网页右下角显示水豚小助手</span>
+                  </div>
+                  <div className="relative inline-block w-10 h-6 shrink-0">
+                    <input type="checkbox" className="opacity-0 w-0 h-0 peer" checked={showPetIcon} onChange={(e) => setShowPetIcon(e.target.checked)} />
+                    <span className="absolute cursor-pointer top-0 left-0 right-0 bottom-0 bg-gray-300 transition-colors duration-300 rounded-full peer-checked:bg-[#0071E3]">
+                      <span className={`absolute left-1 bottom-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 ${showPetIcon ? 'translate-x-4' : ''}`}></span>
+                    </span>
+                  </div>
+               </label>
+               
+               <label className="block mt-4">
+                  <span className="text-[11px] uppercase tracking-widest font-semibold text-[#86868B] ml-1">呼出侧边栏快捷键</span>
+                  <input 
+                     type="text" 
+                     value={shortcutKey} 
+                     readOnly
+                     onKeyDown={(e) => {
+                        e.preventDefault();
+                        if (['Control', 'Alt', 'Shift', 'Meta'].includes(e.key)) return;
+                        const key = e.code.replace('Key', '').replace('Digit', ''); // e.g. "KeyZ" -> "Z"
+                        const mods = [];
+                        if (e.metaKey) mods.push('Cmd');
+                        if (e.ctrlKey) mods.push('Ctrl');
+                        if (e.altKey) mods.push('Alt');
+                        if (e.shiftKey) mods.push('Shift');
+                        mods.push(key);
+                        setShortcutKey(mods.join('+'));
+                     }}
+                     placeholder="Press key combination..." 
+                     className="mt-1.5 w-full bg-[#F5F5F7] border-none rounded-xl px-4 py-3 text-[14px] focus:ring-1 focus:ring-[#0071E3] transition-all placeholder:text-[#86868B]/60 outline-none text-[#1D1D1F] cursor-pointer" 
+                  />
+                  <div className="text-[11px] text-[#86868B] mt-1.5 ml-1">点击输入框后，直接按下想要设置的组合键</div>
+               </label>
              </div>
            </div>
          )}

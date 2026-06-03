@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles, MessageSquareText, Bookmark, MessageCircle, Play, Trash2, Send, Loader2, ArrowRightLeft, Languages, Pin, PinOff, Copy, Check, History, MessageSquarePlus, Volume2, RotateCcw } from 'lucide-react';
+import { X, Sparkles, MessageSquareText, Bookmark, MessageCircle, Play, Trash2, Send, Loader2, ArrowRightLeft, Languages, Pin, PinOff, Copy, Check, History, MessageSquarePlus, Volume2, VolumeX, RotateCcw } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { storage, runtime } from '../lib/chrome';
 
@@ -45,6 +45,13 @@ export default function Sidebar({
   const [sidebarWidth, setSidebarWidth] = useState(420);
   const [isDragging, setIsDragging] = useState(false);
   const [playingTextId, setPlayingTextId] = useState<string | null>(null);
+
+  const [autoRead, setAutoRead] = useState(false);
+  const autoReadRef = React.useRef(autoRead);
+  autoReadRef.current = autoRead;
+
+  const explainLlmOutputRef = React.useRef(explainLlmOutput);
+  explainLlmOutputRef.current = explainLlmOutput;
 
   const handlePlayTTS = (chunks: string[], text: string) => {
      setPlayingTextId(text);
@@ -97,14 +104,37 @@ export default function Sidebar({
   const displayTranslateOutput = selectedHistory?.type === 'translate' ? selectedHistory.data.translate : translateLlmOutput;
   const displayTranslateMode = selectedHistory?.type === 'translate' ? selectedHistory.data.mode : translateMode;
 
-  const prevExplainRef = React.useRef({ text: explainText, explain: explainLlmOutput });
-  const prevTranslateRef = React.useRef({ text: translateText, translate: translateLlmOutput, mode: translateMode });
-  
+  const currentTextRef = React.useRef({ explainText, translateText, translateMode });
+  currentTextRef.current = { explainText, translateText, translateMode };
+
+  const translateLlmOutputRef = React.useRef(translateLlmOutput);
+  translateLlmOutputRef.current = translateLlmOutput;
+
+  const [chatId, setChatId] = useState(() => Date.now().toString());
+  const chatIdRef = React.useRef(chatId);
+  chatIdRef.current = chatId;
+
+  const upsertHistory = async (type: string, data: any, id: string) => {
+    setHistory(prev => {
+      const existingIdx = prev.findIndex(h => h.id === id);
+      let newHistory;
+      const newItem = { id, type, data, date: new Date().toISOString() };
+      if (existingIdx >= 0) {
+        newHistory = [...prev];
+        newHistory[existingIdx] = newItem;
+      } else {
+        newHistory = [newItem, ...prev].slice(0, 100);
+      }
+      storage.set({ zephyr_history: newHistory }).catch(console.error);
+      return newHistory;
+    });
+  };
+
   useEffect(() => {
     storage.get(['zephyr_favorites', 'zephyr_history']).then(res => {
       if (res.zephyr_favorites) setFavorites(res.zephyr_favorites);
       if (res.zephyr_history) setHistory(res.zephyr_history);
-    });
+    }).catch(console.error);
 
     const handleStorageChange = (changes: any, areaName: string) => {
        if (areaName === 'local') {
@@ -126,8 +156,46 @@ export default function Sidebar({
             return [...prev, { role: 'assistant', content: req.chunk }];
           }
         });
+      } else if (req.type === 'LLM_ERROR' && req.taskId === 'chat') {
+        setChatLoading(false);
+        setChatMessages(prev => {
+          const last = prev[prev.length - 1];
+          if (last && last.role === 'assistant') {
+            return [...prev.slice(0, -1), { ...last, content: last.content || `Error: ${req.error}` }];
+          } else {
+            return [...prev, { role: 'assistant', content: `Error: ${req.error}` }];
+          }
+        });
       } else if (req.type === 'LLM_DONE' && req.taskId === 'chat') {
         setChatLoading(false);
+        setChatMessages(prev => {
+           const last = prev[prev.length - 1];
+           if (autoReadRef.current && last && last.role === 'assistant') {
+              setTimeout(() => {
+                 playTTS([], last.content);
+                 setPlayingTextId(last.content);
+              }, 100);
+           }
+           upsertHistory('chat', { messages: prev }, chatIdRef.current);
+           return prev;
+        });
+      } else if (req.type === 'LLM_DONE' && req.taskId === 'explain') {
+        if (autoReadRef.current && explainLlmOutputRef.current) {
+           setTimeout(() => {
+              playTTS([], explainLlmOutputRef.current);
+              setPlayingTextId(explainLlmOutputRef.current);
+           }, 100);
+        }
+        upsertHistory('explain', { 
+           text: currentTextRef.current.explainText, 
+           explain: explainLlmOutputRef.current 
+        }, Date.now().toString());
+      } else if (req.type === 'LLM_DONE' && req.taskId === 'translate') {
+        upsertHistory('translate', { 
+           text: currentTextRef.current.translateText, 
+           translate: translateLlmOutputRef.current, 
+           mode: currentTextRef.current.translateMode 
+        }, Date.now().toString());
       }
     };
     runtime.onMessage.addListener(handleMsg);
@@ -139,49 +207,13 @@ export default function Sidebar({
     };
   }, []);
 
-  const saveToHistory = async (type: string, data: any) => {
-     const newHistory = [{
-        id: Date.now().toString(),
-        type,
-        data,
-        date: new Date().toISOString()
-     }, ...history].slice(0, 100);
-     setHistory(newHistory);
-     await storage.set({ zephyr_history: newHistory });
-   };
-
-   useEffect(() => {
-      const prev = prevExplainRef.current;
-      // If we have a new explainText, save the old one if it finished
-      if (explainText !== prev.text) {
-         if (prev.text && prev.explain && prev.explain !== 'Thinking...') {
-            saveToHistory('explain', { text: prev.text, explain: prev.explain });
-         }
-         prevExplainRef.current = { text: explainText, explain: explainLlmOutput };
-      } else {
-         // Update output
-         prevExplainRef.current.explain = explainLlmOutput;
-      }
-   }, [explainText, explainLlmOutput]);
-
-   useEffect(() => {
-      const prev = prevTranslateRef.current;
-      if (translateText !== prev.text || translateMode !== prev.mode) {
-         if (prev.text && prev.translate && prev.translate !== 'Thinking...') {
-            saveToHistory('translate', { text: prev.text, translate: prev.translate, mode: prev.mode });
-         }
-         prevTranslateRef.current = { text: translateText, translate: translateLlmOutput, mode: translateMode };
-      } else {
-         prevTranslateRef.current.translate = translateLlmOutput;
-      }
-   }, [translateText, translateLlmOutput, translateMode]);
-
    const startNewChat = () => {
       if (chatMessages.length > 0) {
-         saveToHistory('chat', { messages: chatMessages });
          setChatMessages([]);
+         setChatId(Date.now().toString());
       }
    };
+
 
    const handleSaveExplain = async () => {
     if (!explainText) return;
@@ -224,6 +256,7 @@ export default function Sidebar({
     setChatMessages(newArr);
     setChatInput('');
     setChatLoading(true);
+    upsertHistory('chat', { messages: newArr }, chatIdRef.current);
 
     const prompt = [{ role: 'system', content: 'You are an English tutor assistant. Keep answers brief (under 50 words) and helpful.' }, ...newArr];
     runtime.sendMessage({ type: 'LLM_COMPLETION', messages: prompt, taskId: 'chat' });
@@ -250,7 +283,7 @@ export default function Sidebar({
            </div>
            <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {history.filter(h => h.type === activeTab).length === 0 ? (
-                 <div className="text-center text-[#86868B] text-[13px] mt-10">暂无记录</div>
+                 <div className="text-center text-[#86868B] text-[13px] mt-10">No records.</div>
               ) : (
                  history.filter(h => h.type === activeTab).map((h, i) => (
                    <div 
@@ -258,6 +291,7 @@ export default function Sidebar({
                      onClick={() => {
                         if (h.type === 'chat') {
                            setChatMessages(h.data.messages);
+                           setChatId(h.id);
                         } else {
                            setSelectedHistory(h);
                         }
@@ -279,57 +313,67 @@ export default function Sidebar({
           className="absolute left-0 top-0 bottom-0 w-2 cursor-ew-resize hover:bg-[#0071E3]/20 transition-colors z-[50]"
           onMouseDown={(e) => { e.preventDefault(); setIsDragging(true); }}
         />
-        <div className="p-3 border-b border-[#F5F5F7] flex items-center justify-between bg-white shrink-0 pl-4 relative z-20">
-           <div className="flex items-center gap-2">
+        <div className="p-2 border-b border-[#F5F5F7] flex items-center justify-between bg-white shrink-0 relative z-20">
+           <div className="w-[32px] flex justify-start shrink-0 ml-1">
              {activeTab !== 'favorites' && (
-               <button onClick={() => setShowHistory(!showHistory)} className={`p-2 rounded-xl transition-all ${showHistory ? 'bg-blue-50 text-[#0071E3]' : 'text-[#86868B] hover:text-[#1D1D1F] hover:bg-gray-100'}`} title="View History">
-                 <History className="w-5 h-5" />
+               <button onClick={() => setShowHistory(!showHistory)} className={`p-1.5 rounded-xl transition-all ${showHistory ? 'bg-blue-50 text-[#0071E3]' : 'text-[#86868B] hover:text-[#1D1D1F] hover:bg-gray-100'}`} title="View History">
+                 <History className="w-4 h-4" />
                </button>
              )}
-             <div className="flex bg-[#F5F5F7] p-1 rounded-xl gap-1 overflow-x-auto">
-               <button 
-                 onClick={() => { setActiveTab('chat'); setSelectedHistory(null); setShowHistory(false); }}
-                 className={`px-3 py-1.5 min-w-[60px] text-[13px] font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 ${activeTab === 'chat' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
-               >
-                 Chat
-               </button>
-               <button 
-                 onClick={() => { setActiveTab('explain'); setSelectedHistory(null); setShowHistory(false); }}
-                 className={`px-3 py-1.5 min-w-[60px] text-[13px] font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 ${activeTab === 'explain' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
-               >
-                 Explain
-               </button>
-               <button 
-                 onClick={() => { setActiveTab('translate'); setSelectedHistory(null); setShowHistory(false); }}
-                 className={`px-3 py-1.5 min-w-[60px] text-[13px] font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 ${activeTab === 'translate' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
-               >
-                 Translation
-               </button>
-               <button 
-                 onClick={() => { setActiveTab('favorites'); setSelectedHistory(null); setShowHistory(false); }}
-                 className={`px-3 py-1.5 min-w-[60px] text-[13px] font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 ${activeTab === 'favorites' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
-               >
-                 Collection
-               </button>
-             </div>
            </div>
 
-           <div className="flex items-center gap-1">
+           <div className="flex bg-[#F5F5F7] p-1 rounded-xl gap-0.5 flex-1 max-w-[280px]">
+             <button 
+               onClick={() => { setActiveTab('chat'); setSelectedHistory(null); setShowHistory(false); }}
+               className={`px-1 py-1.5 flex-1 text-[12px] font-medium rounded-lg transition-all flex items-center justify-center ${activeTab === 'chat' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
+             >
+               Chat
+             </button>
+             <button 
+               onClick={() => { setActiveTab('explain'); setSelectedHistory(null); setShowHistory(false); }}
+               className={`px-1 py-1.5 flex-1 text-[12px] font-medium rounded-lg transition-all flex items-center justify-center ${activeTab === 'explain' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
+             >
+               Explain
+             </button>
+             <button 
+               onClick={() => { setActiveTab('translate'); setSelectedHistory(null); setShowHistory(false); }}
+               className={`px-1 py-1.5 flex-1 text-[12px] font-medium rounded-lg transition-all flex items-center justify-center ${activeTab === 'translate' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
+             >
+               Translate
+             </button>
+             <button 
+               onClick={() => { setActiveTab('favorites'); setSelectedHistory(null); setShowHistory(false); }}
+               className={`px-1 py-1.5 flex-1 text-[12px] font-medium rounded-lg transition-all flex items-center justify-center ${activeTab === 'favorites' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
+             >
+               Saved
+             </button>
+           </div>
+
+           <div className="w-[135px] flex justify-end items-center gap-0.5 shrink-0 mr-1">
+             {(activeTab === 'chat' || activeTab === 'explain') && (
+                <button 
+                  onClick={() => setAutoRead(!autoRead)} 
+                  className={`p-1.5 rounded-full transition-colors ${autoRead ? 'text-[#0071E3] bg-blue-50' : 'text-[#86868B] hover:text-[#1D1D1F] hover:bg-gray-100'}`} 
+                  title={autoRead ? "Auto-read enabled" : "Auto-read disabled"}
+                >
+                  {autoRead ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                </button>
+             )}
              {activeTab === 'chat' && (
-               <button onClick={startNewChat} className="p-2 hover:bg-gray-100 rounded-full text-[#86868B] hover:text-[#1D1D1F] transition-colors" title="New Chat">
-                 <MessageSquarePlus className="w-5 h-5" />
+               <button onClick={startNewChat} className="p-1.5 hover:bg-gray-100 rounded-full text-[#86868B] hover:text-[#1D1D1F] transition-colors" title="New Chat">
+                 <MessageSquarePlus className="w-4 h-4" />
                </button>
              )}
-             <button onClick={() => setIsPinned(!isPinned)} className={`p-2 rounded-full transition-colors ${isPinned ? 'bg-blue-50 text-[#0071E3]' : 'text-[#86868B] hover:text-[#1D1D1F] hover:bg-gray-100'}`} title={isPinned ? "Unpin sidebar" : "Pin sidebar"}>
-               {isPinned ? <Pin className="w-5 h-5 fill-current" /> : <PinOff className="w-5 h-5" />}
+             <button onClick={() => setIsPinned(!isPinned)} className={`p-1.5 rounded-full transition-colors ${isPinned ? 'bg-blue-50 text-[#0071E3]' : 'text-[#86868B] hover:text-[#1D1D1F] hover:bg-gray-100'}`} title={isPinned ? "Unpin sidebar" : "Pin sidebar"}>
+               {isPinned ? <Pin className="w-4 h-4 fill-current" /> : <PinOff className="w-4 h-4" />}
              </button>
-             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full text-[#86868B] hover:text-[#1D1D1F] transition-colors" title="Close sidebar">
-               <X className="w-5 h-5" />
+             <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-full text-[#86868B] hover:text-[#1D1D1F] transition-colors" title="Close sidebar">
+               <X className="w-4 h-4" />
              </button>
            </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto bg-white flex flex-col relative h-full">
+        <div className="flex-1 overflow-y-auto bg-white flex flex-col relative h-full min-h-0">
                {activeTab === 'chat' && (
              <div className="flex-1 flex flex-col pt-5">
                 <div className="flex-1 overflow-y-auto px-5 space-y-4 pb-5">
@@ -350,8 +394,8 @@ export default function Sidebar({
                                  <button onClick={() => navigator.clipboard.writeText(m.content)} className="p-1 px-2 hover:bg-white text-gray-500 rounded-lg transition-colors text-[11px] font-medium shadow-sm" title="Copy text">
                                    <Copy className="w-3.5 h-3.5" />
                                  </button>
-                                 <button onClick={() => handlePlayTTS([], m.content)} className={`p-1 px-2 hover:bg-white rounded-lg transition-colors text-[11px] font-medium shadow-sm ${playingTextId === m.content && ttsState === 'playing' ? 'text-blue-500' : 'text-gray-500'}`} title="Play audio">
-                                   {playingTextId === m.content && ttsState === 'playing' ? <Volume2 className="w-3.5 h-3.5" /> : playingTextId === m.content && ttsState === 'idle' ? <RotateCcw className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                                 <button onClick={() => handlePlayTTS([], m.content)} className={`p-1 px-2 hover:bg-white rounded-lg transition-colors text-[11px] font-medium shadow-sm flex items-center ${playingTextId === m.content && ttsState === 'playing' ? 'text-blue-500' : 'text-gray-500'}`} title="Play audio">
+                                   {playingTextId === m.content && ttsState === 'playing' ? <Volume2 className="w-3.5 h-3.5 animate-pulse" /> : playingTextId === m.content && ttsState === 'idle' ? <RotateCcw className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
                                  </button>
                               </div>
                             </div>
@@ -410,7 +454,7 @@ export default function Sidebar({
                     <div className="text-[14px] text-[#424245] leading-relaxed zephyr-markdown selection:bg-blue-100 relative group">
                        {displayExplainOutput === 'Thinking...' ? (
                          <div className="flex items-center gap-2 text-[#86868B] font-medium py-2">
-                           <Loader2 className="w-4 h-4 animate-spin" /> 深思中...
+                           <Loader2 className="w-4 h-4 animate-spin" /> Thinking...
                          </div>
                        ) : (
                          <>
@@ -419,8 +463,8 @@ export default function Sidebar({
                              <button onClick={() => navigator.clipboard.writeText(displayExplainOutput)} className="p-1.5 hover:bg-gray-100 text-[#86868B] hover:text-[#1D1D1F] rounded-lg transition-colors text-[12px] font-medium" title="Copy text">
                                <Copy className="w-4 h-4" />
                              </button>
-                             <button onClick={() => handlePlayTTS([], displayExplainOutput)} className={`p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-[12px] font-medium ${playingTextId === displayExplainOutput && ttsState === 'playing' ? 'text-blue-500' : 'text-[#86868B] hover:text-[#1D1D1F]'}`} title="Play audio">
-                               {playingTextId === displayExplainOutput && ttsState === 'playing' ? <Volume2 className="w-4 h-4" /> : playingTextId === displayExplainOutput && ttsState === 'idle' ? <RotateCcw className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                             <button onClick={() => handlePlayTTS([], displayExplainOutput)} className={`p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-[12px] font-medium flex items-center ${playingTextId === displayExplainOutput && ttsState === 'playing' ? 'text-blue-500' : 'text-[#86868B] hover:text-[#1D1D1F]'}`} title="Play audio">
+                               {playingTextId === displayExplainOutput && ttsState === 'playing' ? <Volume2 className="w-4 h-4 animate-pulse" /> : playingTextId === displayExplainOutput && ttsState === 'idle' ? <RotateCcw className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                              </button>
                            </div>
                          </>
@@ -432,16 +476,28 @@ export default function Sidebar({
            )}
 
            {activeTab === 'translate' && (
-             <div className="p-6 space-y-6 flex-1 flex flex-col h-full overflow-hidden">
+             <div className="p-6 space-y-4 flex-1 flex flex-col h-full overflow-hidden">
                 <div className="flex bg-[#F5F5F7] p-1 rounded-xl gap-1 shrink-0">
                   <button 
-                    onClick={() => onTranslateModeChange?.('en2zh')}
+                    onClick={() => {
+                        if (selectedHistory) {
+                           onTranslateChange?.(displayTranslateText);
+                           setSelectedHistory(null);
+                        }
+                        onTranslateModeChange?.('en2zh');
+                    }}
                     className={`flex-1 py-1.5 text-[13px] font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 ${displayTranslateMode === 'en2zh' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
                   >
                     英译中
                   </button>
                   <button 
-                    onClick={() => onTranslateModeChange?.('zh2en')}
+                    onClick={() => {
+                        if (selectedHistory) {
+                           onTranslateChange?.(displayTranslateText);
+                           setSelectedHistory(null);
+                        }
+                        onTranslateModeChange?.('zh2en');
+                    }}
                     className={`flex-1 py-1.5 text-[13px] font-medium rounded-lg transition-all flex items-center justify-center gap-1.5 ${displayTranslateMode === 'zh2en' ? 'bg-white text-[#1D1D1F] shadow-sm' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
                   >
                     中译英
@@ -455,9 +511,19 @@ export default function Sidebar({
                     </h4>
                     <textarea 
                       value={displayTranslateText}
-                      onChange={(e) => onTranslateChange?.(e.target.value)}
+                      onChange={(e) => {
+                         if (selectedHistory) {
+                            onTranslateChange?.(e.target.value);
+                            if (onTranslateModeChange && selectedHistory.data.mode) {
+                               onTranslateModeChange(selectedHistory.data.mode);
+                            }
+                            setSelectedHistory(null);
+                         } else {
+                            onTranslateChange?.(e.target.value);
+                         }
+                      }}
                       placeholder="Enter text to translate..."
-                      className="w-full h-32 bg-[#F5F5F7] focus:bg-white p-4 rounded-xl text-[14px] leading-relaxed text-[#1D1D1F] border border-gray-100 focus:border-blue-200 outline-none resize-none transition-colors border-2 focus:ring-4 ring-blue-50/50"
+                      className="w-full min-h-[140px] flex-1 max-h-[300px] bg-[#F5F5F7] focus:bg-white p-4 rounded-xl text-[14px] leading-relaxed text-[#1D1D1F] border border-gray-100 focus:border-blue-200 outline-none resize-y transition-colors border-2 focus:ring-4 ring-blue-50/50"
                     />
                   </div>
 
@@ -465,18 +531,27 @@ export default function Sidebar({
                     <h4 className="text-[11px] uppercase tracking-wider font-bold text-[#0071E3] flex items-center gap-1.5">
                       {displayTranslateOutput && <><ArrowRightLeft className="w-3.5 h-3.5" /> Translation</>}
                     </h4>
-                    <button onClick={onTranslateTrigger} className="bg-[#1D1D1F] hover:bg-[#000000] text-white px-4 py-1.5 rounded-lg text-[13px] font-medium flex items-center gap-1.5 shadow-sm active:opacity-80 transition-all">
+                    <button onClick={() => {
+                        if (selectedHistory) {
+                           onTranslateChange?.(displayTranslateText);
+                           if (onTranslateModeChange && selectedHistory.data.mode) {
+                              onTranslateModeChange(selectedHistory.data.mode);
+                           }
+                           setSelectedHistory(null);
+                        }
+                        onTranslate?.(displayTranslateText, displayTranslateMode);
+                    }} className="bg-[#1D1D1F] hover:bg-[#000000] text-white px-4 py-1.5 rounded-lg text-[13px] font-medium flex items-center gap-1.5 shadow-sm active:opacity-80 transition-all">
                       <Sparkles className="w-3.5 h-3.5" /> 翻译
                     </button>
                   </div>
 
                   {displayTranslateOutput && (
-                    <div className="flex flex-col gap-2 flex-1 overflow-hidden">
-                      <div className="bg-[#F5F5F7] flex-1 min-h-0 flex flex-col p-4 rounded-xl border border-gray-100 relative group">
+                    <div className="flex flex-col gap-2 flex-1 overflow-hidden min-h-0">
+                      <div className="bg-[#F5F5F7] flex-1 min-h-0 flex flex-col p-4 rounded-xl border border-gray-100 relative group overflow-hidden">
                          <div className="text-[14px] text-[#424245] leading-relaxed zephyr-markdown selection:bg-blue-100 flex-1 overflow-y-auto">
                             {displayTranslateOutput === 'Thinking...' ? (
                               <div className="flex items-center gap-2 text-[#86868B] font-medium py-2">
-                                <Loader2 className="w-4 h-4 animate-spin" /> 翻译中...
+                                <Loader2 className="w-4 h-4 animate-spin" /> Translating...
                               </div>
                             ) : (
                               <>
@@ -485,8 +560,8 @@ export default function Sidebar({
                                   <button onClick={() => navigator.clipboard.writeText(displayTranslateOutput)} className="p-1.5 hover:bg-gray-200 text-[#86868B] hover:text-[#1D1D1F] rounded-lg transition-colors text-[12px] font-medium shadow-sm" title="Copy text">
                                     <Copy className="w-4 h-4" />
                                   </button>
-                                  <button onClick={() => handlePlayTTS([], displayTranslateOutput)} className={`p-1.5 hover:bg-gray-200 rounded-lg transition-colors text-[12px] font-medium shadow-sm ${playingTextId === displayTranslateOutput && ttsState === 'playing' ? 'text-blue-500' : 'text-[#86868B] hover:text-[#1D1D1F]'}`} title="Play audio">
-                                    {playingTextId === displayTranslateOutput && ttsState === 'playing' ? <Volume2 className="w-4 h-4" /> : playingTextId === displayTranslateOutput && ttsState === 'idle' ? <RotateCcw className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                                  <button onClick={() => handlePlayTTS([], displayTranslateOutput)} className={`p-1.5 hover:bg-gray-200 rounded-lg transition-colors text-[12px] font-medium shadow-sm flex items-center ${playingTextId === displayTranslateOutput && ttsState === 'playing' ? 'text-blue-500' : 'text-[#86868B] hover:text-[#1D1D1F]'}`} title="Play audio">
+                                    {playingTextId === displayTranslateOutput && ttsState === 'playing' ? <Volume2 className="w-4 h-4 animate-pulse" /> : playingTextId === displayTranslateOutput && ttsState === 'idle' ? <RotateCcw className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                                   </button>
                                 </div>
                               </>
@@ -506,19 +581,19 @@ export default function Sidebar({
                     onClick={() => setFavFilter('all')}
                     className={`flex-1 py-1.5 text-[12px] font-medium rounded-lg transition-all ${favFilter === 'all' ? 'bg-[#F5F5F7] text-[#1D1D1F]' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
                   >
-                    全部
+                    All
                   </button>
                   <button 
                     onClick={() => setFavFilter('explain')}
                     className={`flex-1 py-1.5 text-[12px] font-medium rounded-lg transition-all ${favFilter === 'explain' ? 'bg-[#F5F5F7] text-[#1D1D1F]' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
                   >
-                    解释
+                    Explain
                   </button>
                   <button 
                     onClick={() => setFavFilter('read')}
                     className={`flex-1 py-1.5 text-[12px] font-medium rounded-lg transition-all ${favFilter === 'read' ? 'bg-[#F5F5F7] text-[#1D1D1F]' : 'text-[#86868B] hover:text-[#1D1D1F]'}`}
                   >
-                    朗读
+                    Speech
                   </button>
                 </div>
                 
@@ -529,7 +604,7 @@ export default function Sidebar({
                     return true;
                   }).length === 0 && (
                     <div className="text-center text-[#86868B] text-[13px] mt-10">
-                      暂无相关收藏内容.
+                      No related collection content.
                     </div>
                   )}
                   {favorites.filter(fav => {
@@ -549,8 +624,8 @@ export default function Sidebar({
                           <button onClick={() => navigator.clipboard.writeText(fav.explain || fav.text)} className="p-1.5 hover:bg-gray-100 text-[#86868B] hover:text-[#1D1D1F] rounded-lg transition-colors" title="Copy text">
                             <Copy className="w-4 h-4" />
                           </button>
-                          <button onClick={() => handlePlayTTS(fav.audioChunks || [], fav.text)} className={`p-1.5 hover:bg-gray-100 rounded-lg transition-colors ${playingTextId === fav.text && ttsState === 'playing' ? 'text-blue-500' : 'text-[#86868B] hover:text-[#1D1D1F]'}`} title="Play audio">
-                            {playingTextId === fav.text && ttsState === 'playing' ? <Volume2 className="w-4 h-4" /> : playingTextId === fav.text && ttsState === 'idle' ? <RotateCcw className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                          <button onClick={() => handlePlayTTS(fav.audioChunks || [], fav.text)} className={`p-1.5 hover:bg-gray-100 rounded-lg transition-colors flex items-center ${playingTextId === fav.text && ttsState === 'playing' ? 'text-blue-500' : 'text-[#86868B] hover:text-[#1D1D1F]'}`} title="Play audio">
+                            {playingTextId === fav.text && ttsState === 'playing' ? <Volume2 className="w-4 h-4 animate-pulse" /> : playingTextId === fav.text && ttsState === 'idle' ? <RotateCcw className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                           </button>
                           <div className="flex-1"></div>
                           <button onClick={() => removeFavorite(fav)} className="p-1.5 text-red-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">

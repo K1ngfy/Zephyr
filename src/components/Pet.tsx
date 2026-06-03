@@ -50,10 +50,25 @@ export default function Pet({ ttsState, onClick }: { ttsState: 'idle' | 'playing
   const PEEK_AMOUNT = 42; 
 
   useEffect(() => {
-    // Dock to the right side vertically centered on first load
+    // Dock to the right side vertically bottom on first load
     const startX = window.innerWidth - PEEK_AMOUNT;
-    const startY = window.innerHeight / 2 - PET_WIDTH / 2;
+    const startY = window.innerHeight - PET_WIDTH - 80;
     setPos({ x: startX, y: startY });
+
+    const handleResize = () => {
+      setPos(p => {
+        if (p.x === -1) return p;
+        // Snap to appropriate edge
+        const newY = Math.min(p.y, window.innerHeight - PET_WIDTH);
+        if (p.x >= window.innerWidth / 2) {
+          return { x: window.innerWidth - PEEK_AMOUNT, y: newY };
+        } else {
+          return { x: -(PET_WIDTH - PEEK_AMOUNT), y: newY };
+        }
+      });
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -62,7 +77,12 @@ export default function Pet({ ttsState, onClick }: { ttsState: 'idle' | 'playing
 
     const startX = e.clientX;
     const startY = e.clientY;
-    const startPos = { ...pos };
+    
+    const isRightSideStart = pos.x > window.innerWidth / 2;
+    const startPos = { 
+        x: isRightSideStart ? window.innerWidth - PEEK_AMOUNT : -(PET_WIDTH - PEEK_AMOUNT),
+        y: pos.y 
+    };
 
     let moved = false;
     setIsDragging(true);
@@ -116,11 +136,20 @@ export default function Pet({ ttsState, onClick }: { ttsState: 'idle' | 'playing
       }
   }
 
+  const positioningStyle = isDragging ? {
+      left: pos.x,
+      right: 'auto',
+      top: pos.y,
+  } : {
+      top: pos.y,
+      ...(isRightSide ? { right: -(PET_WIDTH - PEEK_AMOUNT), left: 'auto' } : { left: -(PET_WIDTH - PEEK_AMOUNT), right: 'auto' })
+  };
+
   return (
     <div 
-      className={`zephyr-pet-drag fixed flex flex-col items-center cursor-pointer transition-opacity select-none ${isHidden ? 'opacity-50' : 'opacity-100'}`}
+      className={`zephyr-pet-drag fixed flex flex-col items-center cursor-pointer transition-opacity select-none ${isHovered || isDragging ? 'opacity-100' : 'opacity-40'}`}
       style={{ 
-        left: pos.x, top: pos.y, 
+        ...positioningStyle,
         width: PET_WIDTH, height: PET_WIDTH,
         zIndex: 2147483647, touchAction: 'none',
         transform: `translateX(${xOffset}px)`,

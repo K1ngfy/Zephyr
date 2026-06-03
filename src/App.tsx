@@ -38,8 +38,8 @@ export default function App() {
     : (config.volcengineKey && config.endpointId);
 
   return (
-    <div className="min-h-screen bg-[#F5F5F7] text-[#1D1D1F] font-sans flex items-center justify-center p-8 selection:bg-blue-100 selection:text-[#0071E3]">
-      <div className="w-full max-w-3xl">
+    <div className="min-h-screen bg-[#F5F5F7] text-[#1D1D1F] font-sans flex items-center justify-center p-8 selection:bg-blue-100 selection:text-[#0071E3] [&_svg]:shrink-0">
+      <div className="w-full max-w-4xl">
         {(!isLlmConfigured || !config.speechAppId || !config.speechToken || !config.onboarded) ? (
           <Onboarding onComplete={(newConfig) => setConfig(newConfig)} />
         ) : (

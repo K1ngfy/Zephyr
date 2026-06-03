@@ -11,12 +11,35 @@ if (!document.getElementById('zephyr-extension-root')) {
   const container = document.createElement('div');
   container.id = 'zephyr-extension-root';
   // Use z-index that guarantees floating above everything
-  container.style.position = 'absolute';
+  container.style.position = 'fixed';
   container.style.zIndex = '2147483647'; // Max z-index
   container.style.top = '0';
   container.style.left = '0';
+  container.style.right = '0';
+  container.style.bottom = '0';
+  container.style.visibility = 'visible';
+  container.style.display = 'block';
   container.style.pointerEvents = 'none'; // Let clicks pass through except on children
-  document.body.appendChild(container);
+  container.style.background = 'transparent';
+  container.style.fontSize = '16px';
+  container.style.margin = '0';
+  container.style.padding = '0';
+  
+  const targetParent = document.documentElement || document.body;
+  targetParent.appendChild(container);
+
+  // Ensure it stays in the DOM (some SPAs might clear the body/html)
+  const observer = new MutationObserver(() => {
+    if (!document.getElementById('zephyr-extension-root')) {
+      const parent = document.documentElement || document.body;
+      parent.appendChild(container);
+      
+      // Re-observe body if it was replaced
+      if (document.body) observer.observe(document.body, { childList: true });
+    }
+  });
+  observer.observe(document.documentElement, { childList: true });
+  if (document.body) observer.observe(document.body, { childList: true });
 
   const shadow = container.attachShadow({ mode: 'open' });
   

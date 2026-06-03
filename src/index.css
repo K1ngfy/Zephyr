@@ -1,7 +1,48 @@
 @import "tailwindcss";
 
+@theme {
+  --spacing: 4px;
+  
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 18px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+  --text-4xl: 36px;
+  --text-5xl: 48px;
+  --text-6xl: 60px;
+  --text-7xl: 72px;
+  --text-8xl: 96px;
+  --text-9xl: 128px;
+
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 24px;
+  --radius-4xl: 32px;
+
+  --container-3xs: 256px;
+  --container-2xs: 288px;
+  --container-xs: 320px;
+  --container-sm: 384px;
+  --container-md: 448px;
+  --container-lg: 512px;
+  --container-xl: 576px;
+  --container-2xl: 672px;
+  --container-3xl: 768px;
+  --container-4xl: 896px;
+  --container-5xl: 1024px;
+  --container-6xl: 1152px;
+  --container-7xl: 1280px;
+}
+
 .zephyr-markdown p {
-  margin-bottom: 0.5rem;
+  margin-bottom: 8px;
 }
 .zephyr-markdown p:last-child {
   margin-bottom: 0;
@@ -12,14 +53,14 @@
 }
 .zephyr-markdown code {
   background-color: #f3f4f6;
-  padding: 0.125rem 0.25rem;
-  border-radius: 0.25rem;
+  padding: 2px 4px;
+  border-radius: 4px;
   font-family: monospace;
-  font-size: 0.875em;
+  font-size: 14px;
   color: #4b5563;
 }
 .zephyr-markdown ul {
   list-style-type: disc;
-  padding-left: 1.5rem;
-  margin-bottom: 0.5rem;
+  padding-left: 24px;
+  margin-bottom: 8px;
 }

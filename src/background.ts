@@ -103,12 +103,16 @@ async function handleTTS(text: string, tabId?: number) {
       'X-Api-Resource-Id': config.speechCluster
     };
 
+    const timeoutId = setTimeout(() => currentTtsAbort?.abort(new Error("Request timed out (15s)")), 15000);
+
     const response = await fetch('https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse', {
       method: 'POST',
       headers: headers,
       body: JSON.stringify(payload),
       signal
     });
+    
+    clearTimeout(timeoutId);
 
     if (!response.body) throw new Error('No body returned from TTS');
     const reader = response.body.getReader();
@@ -186,6 +190,9 @@ async function handleLLM(messages: any[], tabId?: number, taskId?: string) {
     modelId = config.endpointId;
   }
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -197,8 +204,11 @@ async function handleLLM(messages: any[], tabId?: number, taskId?: string) {
         model: modelId,
         messages: messages,
         stream: true
-      })
+      }),
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
 
     if (!response.body) throw new Error('No body returned from LLM');
     if (!response.ok) {

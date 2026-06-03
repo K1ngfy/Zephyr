@@ -9,6 +9,7 @@ export default defineConfig(() => {
       },
     },
     build: {
+      outDir: 'zephyr',
       emptyOutDir: false,
       rollupOptions: {
         input: {

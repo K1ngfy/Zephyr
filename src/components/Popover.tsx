@@ -64,7 +64,7 @@ export default function Popover({ rect, type, text, llmOutput, ttsState, ttsChun
       style={{ 
         top: position.top, 
         left: position.left,
-        width: '18rem',
+        width: '288px',
         zIndex: 2147483647
       }}
     >

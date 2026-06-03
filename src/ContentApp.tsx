@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { runtime } from './lib/chrome';
+import { runtime, storage } from './lib/chrome';
 import { AudioStreamer } from './lib/audio';
 import Popover from './components/Popover';
 import Pet from './components/Pet';
 import Sidebar from './components/Sidebar';
-import { Volume2, Sparkles, Languages } from 'lucide-react';
+import { Volume2, Sparkles, Languages, X } from 'lucide-react';
 
 export default function ContentApp() {
   const [popover, setPopover] = useState<{ show: boolean, rect: DOMRect | null, text: string, type: 'explain' | 'read' }>({
@@ -32,6 +32,33 @@ export default function ContentApp() {
   const [ttsState, setTtsState] = useState<'idle' | 'playing'>('idle');
   const [ttsChunks, setTtsChunks] = useState<string[]>([]);
   const streamerRef = useRef<AudioStreamer | null>(null);
+
+  const [showPetIcon, setShowPetIcon] = useState(true);
+  const [shortcutKey, setShortcutKey] = useState('Alt+Z');
+
+  useEffect(() => {
+     try {
+       storage.get(['zephyr_config']).then((res: any) => {
+         const config = res.zephyr_config || {};
+         setShowPetIcon(config.showPetIcon !== false);
+         setShortcutKey(config.shortcutKey || 'Alt+Z');
+       }).catch((e) => console.error("Storage error:", e));
+       
+       const handleStorageChange = (changes: any, areaName: string) => {
+         if (areaName === 'local' && changes.zephyr_config) {
+           const config = changes.zephyr_config.newValue || {};
+           setShowPetIcon(config.showPetIcon !== false);
+           setShortcutKey(config.shortcutKey || 'Alt+Z');
+         }
+       };
+       if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+          chrome.storage.onChanged.addListener(handleStorageChange);
+          return () => chrome.storage.onChanged.removeListener(handleStorageChange);
+       }
+     } catch (e) {
+       console.error("Storage error:", e);
+     }
+  }, []);
 
   useEffect(() => {
     const handleMessage = (request: any) => {
@@ -80,6 +107,10 @@ export default function ContentApp() {
         setLlmOutput(prev => prev === 'Thinking...' ? request.chunk : prev + request.chunk);
       } else if (request.type === 'LLM_CHUNK' && request.taskId === 'translate') {
         setTranslateLlmOutput(prev => prev === 'Thinking...' ? request.chunk : prev + request.chunk);
+      } else if (request.type === 'LLM_ERROR' && request.taskId === 'explain') {
+        setLlmOutput(`Error: ${request.error}`);
+      } else if (request.type === 'LLM_ERROR' && request.taskId === 'translate') {
+        setTranslateLlmOutput(`Error: ${request.error}`);
       } else if (request.type === 'LLM_DONE' && request.taskId === 'explain') {
         // Option to play TTS after explain
       }
@@ -88,7 +119,8 @@ export default function ContentApp() {
     runtime.onMessage.addListener(handleMessage);
     
     const handleMouseUp = (e: MouseEvent) => {
-      if ((e.target as HTMLElement).closest('.zephyr-root')) return;
+      const target = e.target as HTMLElement;
+      if (target?.closest?.('.zephyr-root') || target?.closest?.('#zephyr-extension-root')) return;
 
       setTimeout(() => {
         const selection = window.getSelection();
@@ -106,19 +138,49 @@ export default function ContentApp() {
     };
 
     const handleDocumentClick = (e: MouseEvent) => {
-      if ((e.target as HTMLElement).closest('.zephyr-root')) return;
+      const target = e.target as HTMLElement;
+      if (target?.closest?.('.zephyr-root') || target?.closest?.('#zephyr-extension-root')) return;
       setPopover(prev => ({ ...prev, show: false }));
     };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+       const target = e.target as HTMLElement;
+       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName) || target?.isContentEditable) {
+           return;
+       }
+
+       if (shortcutKey) {
+           const parts = shortcutKey.toLowerCase().split('+');
+           const keyPart = parts.pop();
+           const hasAlt = parts.includes('alt');
+           const hasCtrl = parts.includes('ctrl');
+           const hasShift = parts.includes('shift');
+           const hasMeta = parts.includes('cmd') || parts.includes('meta');
+           
+           const currentKey = e.code.replace('Key', '').replace('Digit', '').toLowerCase();
+
+           if ((currentKey === keyPart || e.key.toLowerCase() === keyPart) &&
+               e.altKey === hasAlt && 
+               e.ctrlKey === hasCtrl && 
+               e.shiftKey === hasShift &&
+               e.metaKey === hasMeta) {
+               e.preventDefault();
+               setSidebarOpen(prev => !prev);
+           }
+       }
+    };
     
-    document.addEventListener('mouseup', handleMouseUp);
-    document.addEventListener('mousedown', handleDocumentClick);
+    document.addEventListener('mouseup', handleMouseUp, { capture: true });
+    document.addEventListener('mousedown', handleDocumentClick, { capture: true });
+    document.addEventListener('keydown', handleKeyDown, { capture: true });
     
     return () => {
       runtime.onMessage.removeListener(handleMessage);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.removeEventListener('mousedown', handleDocumentClick);
+      document.removeEventListener('mouseup', handleMouseUp, { capture: true });
+      document.removeEventListener('mousedown', handleDocumentClick, { capture: true });
+      document.removeEventListener('keydown', handleKeyDown, { capture: true });
     };
-  }, [popover.text]);
+  }, [popover.text, shortcutKey]);
 
   const handleStopTts = () => {
     streamerRef.current?.stop();
@@ -147,7 +209,7 @@ export default function ContentApp() {
   };
 
   return (
-    <div className="zephyr-root text-base antialiased" onMouseDown={e => e.stopPropagation()} onMouseUp={e => e.stopPropagation()}>
+    <div className="zephyr-root font-sans text-left text-base antialiased left-0 top-0 [&_svg]:shrink-0" onMouseDown={e => e.stopPropagation()} onMouseUp={e => e.stopPropagation()}>
       {quickAction.show && quickAction.rect && !popover.show && (
         <div 
           className="absolute bg-[#1D1D1F] rounded-xl shadow-xl flex items-center p-1.5 gap-1 z-[2147483647] animate-in fade-in duration-200"
@@ -225,6 +287,23 @@ export default function ContentApp() {
           >
              <Languages className="w-4 h-4" />
           </button>
+          
+          <div className="w-[1px] h-3 bg-white/20 mx-0.5" />
+          
+          <button 
+             onMouseDown={(e) => e.preventDefault()}
+             onClick={() => {
+               setQuickAction(prev => ({ ...prev, show: false }));
+               
+               // Optional: Clear selection so it doesn't pop up again if they click elsewhere and accidentally drag,
+               // but usually they just want to close the popup while keeping text selected to copy it.
+               // We will keep selection active.
+             }}
+             title="Close"
+             className="p-1 hover:bg-white/20 text-white/60 hover:text-white rounded-md transition-colors flex items-center justify-center cursor-pointer border-none"
+          >
+             <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
@@ -297,7 +376,9 @@ export default function ContentApp() {
         />
       )}
 
-      <Pet ttsState={ttsState} onClick={popSidebarChat} />
+      {showPetIcon && (
+        <Pet ttsState={ttsState} onClick={popSidebarChat} />
+      )}
     </div>
   );
 }

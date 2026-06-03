@@ -2,8 +2,13 @@
 
 export const storage = {
   get: async (keys: string | string[] | Record<string, any> | null): Promise<any> => {
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      return chrome.storage.local.get(keys);
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        return await chrome.storage.local.get(keys);
+      }
+    } catch(e) {
+      console.error("Chrome storage get error", e);
+      return {};
     }
     
     // Mock for web preview
@@ -25,8 +30,13 @@ export const storage = {
     return result;
   },
   set: async (items: Record<string, any>): Promise<void> => {
-    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-      return chrome.storage.local.set(items);
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        return await chrome.storage.local.set(items);
+      }
+    } catch(e) {
+      console.error("Chrome storage set error", e);
+      return;
     }
     
     // Mock for web preview
@@ -53,7 +63,16 @@ export const runtime = {
   },
   sendMessage: (message: any) => {
     if (isExtension) {
-      return chrome.runtime.sendMessage(message);
+      try {
+        const result = chrome.runtime.sendMessage(message);
+        if (result && typeof result.catch === 'function') {
+           result.catch((e: any) => console.error("Chrome sendMessage returned error", e));
+        }
+        return result;
+      } catch (e) {
+        console.error("Chrome sendMessage sync error", e);
+        return Promise.resolve();
+      }
     }
     console.log("[Mock Chrome] runtime.sendMessage:", message);
     runtimeListeners.forEach(l => l(message, { tab: { id: 1 } }, () => {}));
@@ -81,7 +100,16 @@ export const runtime = {
 export const tabs = {
   sendMessage: (tabId: number, message: any) => {
     if (isExtension) {
-      return chrome.tabs.sendMessage(tabId, message);
+      try {
+        const result = chrome.tabs.sendMessage(tabId, message);
+        if (result && typeof result.catch === 'function') {
+           result.catch((e: any) => console.error("Chrome tabs.sendMessage returned error", e));
+        }
+        return result;
+      } catch (e) {
+        console.error("Chrome tabs.sendMessage sync error", e);
+        return Promise.resolve();
+      }
     }
     console.log("[Mock Chrome] tabs.sendMessage:", message);
     tabsListeners.forEach(l => l(message, { tab: { id: 1 } }, () => {}));

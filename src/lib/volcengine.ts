@@ -14,18 +14,33 @@ export async function testLLMConnection(config: any) {
            url += url.endsWith('/') ? 'chat/completions' : '/chat/completions';
         }
 
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.customLlmKey}`
-          },
-          body: JSON.stringify({
-            model: config.customLlmModel,
-            messages: [{ role: 'user', content: 'test' }],
-            max_tokens: 1
-          })
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        let res;
+        try {
+          res = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${config.customLlmKey}`
+            },
+            body: JSON.stringify({
+              model: config.customLlmModel,
+              messages: [{ role: 'user', content: 'test' }],
+              max_tokens: 1
+            }),
+            signal: controller.signal
+          });
+        } catch (e: any) {
+          if (e.name === 'AbortError') {
+             llmError = 'Request timed out (10s)';
+          } else {
+             llmError = e.message || 'Network error';
+          }
+          return { llmSuccess, llmError };
+        } finally {
+          clearTimeout(timeoutId);
+        }
         const text = await res.text();
         let data;
         try { data = JSON.parse(text); } catch(e) { data = { error: { message: text } }; }
@@ -43,18 +58,33 @@ export async function testLLMConnection(config: any) {
       if (!config.volcengineKey || !config.endpointId) {
         llmError = 'Missing API Key or Endpoint ID';
       } else {
-        const res = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.volcengineKey}`
-          },
-          body: JSON.stringify({
-            model: config.endpointId,
-            messages: [{ role: 'user', content: 'test' }],
-            max_tokens: 1
-          })
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        let res;
+        try {
+          res = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${config.volcengineKey}`
+            },
+            body: JSON.stringify({
+              model: config.endpointId,
+              messages: [{ role: 'user', content: 'test' }],
+              max_tokens: 1
+            }),
+            signal: controller.signal
+          });
+        } catch (e: any) {
+          if (e.name === 'AbortError') {
+             llmError = 'Request timed out (10s)';
+          } else {
+             llmError = e.message || 'Network error';
+          }
+          return { llmSuccess, llmError };
+        } finally {
+          clearTimeout(timeoutId);
+        }
         const data = await res.json();
         if (data.error) {
            llmError = data.error.message || JSON.stringify(data.error);
@@ -109,11 +139,26 @@ export async function testVolcengineTTS(config: any) {
          payload.req_params.audio_params.emotion = config.speechEmotion;
       }
 
-      const res = await fetch('https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload)
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      let res;
+      try {
+        res = await fetch('https://openspeech.bytedance.com/api/v3/tts/unidirectional/sse', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+      } catch (e: any) {
+        if (e.name === 'AbortError') {
+           ttsError = 'Request timed out (10s)';
+        } else {
+           ttsError = e.message || 'Network error';
+        }
+        return { ttsSuccess, ttsError, usage };
+      } finally {
+        clearTimeout(timeoutId);
+      }
       
       if (!res.ok) {
          const text = await res.text();
