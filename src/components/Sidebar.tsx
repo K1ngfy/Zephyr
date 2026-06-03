@@ -271,7 +271,7 @@ export default function Sidebar({
     setChatLoading(true);
     upsertHistory('chat', { messages: newArr }, chatIdRef.current);
 
-    const prompt = [{ role: 'system', content: 'You are an English tutor assistant. Keep answers brief (under 50 words) and helpful.' }, ...newArr];
+    const prompt = newArr;
     runtime.sendMessage({ type: 'LLM_COMPLETION', messages: prompt, taskId: 'chat' });
   };
 
@@ -387,56 +387,89 @@ export default function Sidebar({
 
         <div className="flex-1 overflow-y-auto bg-white flex flex-col relative h-full min-h-0">
                {activeTab === 'chat' && (
-             <div className="flex-1 flex flex-col pt-5">
-                <div className="flex-1 overflow-y-auto px-5 space-y-4 pb-5">
-                   {chatMessages.length === 0 && (
-                     <div className="text-center text-[#86868B] text-[13px] mt-10">
-                       Need help with anything on this page? I'm listening! Type <code className="bg-[#F5F5F7] text-[#424245] px-1 py-0.5 rounded">/read txt</code> to test TTS.
-                     </div>
-                   )}
-                   {chatMessages.map((m, i) => (
-                     <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} group relative`}>
-                       <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-[13px] leading-relaxed shadow-sm ${
-                         m.role === 'user' ? 'bg-[#1D1D1F] text-white border-none rounded-br-sm' : 'bg-[#F5F5F7] text-[#424245] border-none rounded-bl-sm relative'
-                       }`}>
-                          {m.role === 'user' ? m.content : (
-                            <div className="flex flex-col gap-2">
-                              <div className="zephyr-markdown"><ReactMarkdown>{m.content}</ReactMarkdown></div>
-                              <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-200">
-                                 <button onClick={() => navigator.clipboard.writeText(m.content)} className="p-1 px-2 hover:bg-white text-gray-500 rounded-lg transition-colors text-[11px] font-medium shadow-sm" title="Copy text">
-                                   <Copy className="w-3.5 h-3.5" />
-                                 </button>
-                                 <button onClick={() => handlePlayTTS([], m.content)} className={`p-1 px-2 hover:bg-white rounded-lg transition-colors text-[11px] font-medium shadow-sm flex items-center ${playingTextId === m.content && ttsState === 'playing' ? 'text-blue-500' : 'text-gray-500'}`} title="Play audio">
-                                   {playingTextId === m.content && ttsState === 'playing' ? <Volume2 className="w-3.5 h-3.5 animate-pulse" /> : playingTextId === m.content && ttsState === 'idle' ? <RotateCcw className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                                 </button>
-                              </div>
-                            </div>
-                          )}
+             <div className="flex-1 flex flex-col relative h-full">
+                {chatMessages.length === 0 && !chatLoading ? (
+                   <div className="flex-1 flex flex-col items-center justify-center p-6 h-full">
+                     <div className="w-full flex flex-col gap-4 -mt-10">
+                       <div className="text-center text-[#86868B] text-[14px] font-medium mb-2">
+                         Need help with anything on this page? I'm listening!
                        </div>
+                       <form onSubmit={submitChat} className="relative flex flex-col w-full shadow-sm rounded-2xl bg-[#F5F5F7] border border-gray-200 focus-within:border-[#0071E3] focus-within:ring-1 focus-within:ring-[#0071E3] transition-all">
+                         <textarea 
+                           value={chatInput}
+                           onChange={e => setChatInput(e.target.value)}
+                           onKeyDown={(e) => {
+                             if (e.key === 'Enter' && !e.shiftKey) {
+                               e.preventDefault();
+                               submitChat();
+                             }
+                           }}
+                           placeholder="Ask a question..." 
+                           className="w-full bg-transparent border-none rounded-xl p-4 pb-12 text-[14px] text-[#1D1D1F] placeholder:text-[#86868B] outline-none min-h-[120px] resize-none leading-relaxed"
+                         />
+                         <div className="absolute right-3 bottom-3">
+                           <button type="submit" disabled={!chatInput.trim() || chatLoading} className="w-8 h-8 flex items-center justify-center bg-[#1D1D1F] text-white rounded-[10px] disabled:opacity-50 hover:bg-black transition-colors shadow-md">
+                             <Send className="w-4 h-4 mr-0.5" />
+                           </button>
+                         </div>
+                       </form>
                      </div>
-                   ))}
-                   {chatLoading && (
-                     <div className="flex justify-start">
-                       <div className="max-w-[85%] rounded-2xl px-4 py-3 bg-[#F5F5F7] rounded-bl-sm flex items-center gap-2 text-[#86868B] shadow-sm">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> <span className="text-[13px]">Thinking...</span>
-                       </div>
-                     </div>
-                   )}
-                </div>
-                <div className="p-4 border-t border-[#F5F5F7] bg-white shrink-0">
-                  <form onSubmit={submitChat} className="relative flex items-center">
-                    <input 
-                      type="text" 
-                      value={chatInput}
-                      onChange={e => setChatInput(e.target.value)}
-                      placeholder="Ask a question..." 
-                      className="w-full bg-[#F5F5F7] border-none rounded-xl pl-4 pr-12 py-3 text-[13px] text-[#1D1D1F] focus:ring-1 focus:ring-[#0071E3] transition-all placeholder:text-[#86868B] outline-none"
-                    />
-                    <button type="submit" disabled={!chatInput.trim() || chatLoading} className="absolute right-2 w-8 h-8 flex items-center justify-center bg-[#1D1D1F] text-white rounded-[10px] disabled:opacity-50 hover:bg-black transition-colors shadow-md">
-                      <Send className="w-3.5 h-3.5" />
-                    </button>
-                  </form>
-                </div>
+                   </div>
+                ) : (
+                   <div className="flex-1 flex flex-col h-full overflow-hidden pt-5">
+                      <div className="flex-1 overflow-y-auto px-5 space-y-4 pb-5">
+                         {chatMessages.map((m, i) => (
+                           <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} group relative`}>
+                             <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-[13px] leading-relaxed shadow-sm ${
+                               m.role === 'user' ? 'bg-[#1D1D1F] text-white border-none rounded-br-sm whitespace-pre-wrap' : 'bg-[#F5F5F7] text-[#424245] border-none rounded-bl-sm relative'
+                             }`}>
+                                {m.role === 'user' ? m.content : (
+                                  <div className="flex flex-col gap-2">
+                                    <div className="zephyr-markdown"><ReactMarkdown>{m.content}</ReactMarkdown></div>
+                                    <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-200">
+                                       <button onClick={() => navigator.clipboard.writeText(m.content)} className="p-1 px-2 hover:bg-white text-gray-500 rounded-lg transition-colors text-[11px] font-medium shadow-sm" title="Copy text">
+                                         <Copy className="w-3.5 h-3.5" />
+                                       </button>
+                                       <button onClick={() => handlePlayTTS([], m.content)} className={`p-1 px-2 hover:bg-white rounded-lg transition-colors text-[11px] font-medium shadow-sm flex items-center ${playingTextId === m.content && ttsState === 'playing' ? 'text-blue-500' : 'text-gray-500'}`} title="Play audio">
+                                         {playingTextId === m.content && ttsState === 'playing' ? <Volume2 className="w-3.5 h-3.5 animate-pulse" /> : playingTextId === m.content && ttsState === 'idle' ? <RotateCcw className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                                       </button>
+                                    </div>
+                                  </div>
+                                )}
+                             </div>
+                           </div>
+                         ))}
+                         {chatLoading && (
+                           <div className="flex justify-start">
+                             <div className="max-w-[85%] rounded-2xl px-4 py-3 bg-[#F5F5F7] rounded-bl-sm flex items-center gap-2 text-[#86868B] shadow-sm">
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" /> <span className="text-[13px]">Thinking...</span>
+                             </div>
+                           </div>
+                         )}
+                      </div>
+                      <div className="p-4 border-t border-[#F5F5F7] bg-white shrink-0">
+                        <form onSubmit={submitChat} className="relative flex flex-col shadow-sm rounded-2xl bg-[#F5F5F7] border border-gray-200 focus-within:border-[#0071E3] focus-within:ring-1 focus-within:ring-[#0071E3] transition-all">
+                          <textarea 
+                            value={chatInput}
+                            onChange={e => setChatInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                submitChat();
+                              }
+                            }}
+                            placeholder="Ask a question..." 
+                            className="w-full bg-transparent border-none rounded-xl p-4 pb-12 text-[14px] text-[#1D1D1F] placeholder:text-[#86868B] outline-none min-h-[120px] resize-none leading-relaxed"
+                          />
+                          <div className="absolute right-3 bottom-3">
+                            <button type="submit" disabled={!chatInput.trim() || chatLoading} className="w-8 h-8 flex items-center justify-center bg-[#1D1D1F] text-white rounded-[10px] disabled:opacity-50 hover:bg-black transition-colors shadow-md">
+                              <Send className="w-4 h-4 mr-0.5" />
+                            </button>
+                          </div>
+                        </form>
+                      </div>
+                   </div>
+                )}
              </div>
            )}
 
