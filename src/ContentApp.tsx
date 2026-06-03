@@ -339,32 +339,23 @@ export default function ContentApp() {
           translateText={translateText}
           translateLlmOutput={translateLlmOutput}
           translateMode={translateMode}
-          onTranslateModeChange={(mode) => {
+          onTranslateModeChange={(mode, textOverride?: string) => {
              setTranslateMode(mode);
-             if (translateText) {
-                setTranslateLlmOutput('Thinking...');
-                const sysPrompt = mode === 'zh2en' 
-                  ? '你是一个专业的翻译。请将以下中文翻译成英文。只输出翻译结果，不要任何额外解释。'
-                  : '你是一个专业的翻译。请将以下英文翻译成中文。只输出翻译结果，不要任何额外解释。';
-                const prompt = [
-                  { role: 'system', content: sysPrompt },
-                  { role: 'user', content: translateText }
-                ];
-                runtime.sendMessage({ type: 'LLM_COMPLETION', messages: prompt, taskId: 'translate' });
-             }
           }}
           onTranslateChange={(text) => {
              setTranslateText(text);
           }}
-          onTranslateTrigger={() => {
-             if (translateText) {
+          onTranslateTrigger={(textOverride?: string, modeOverride?: string) => {
+             const textToTranslate = textOverride || translateText;
+             const modeToUse = modeOverride || translateMode;
+             if (textToTranslate) {
                 setTranslateLlmOutput('Thinking...');
-                const sysPrompt = translateMode === 'zh2en' 
+                const sysPrompt = modeToUse === 'zh2en' 
                   ? '你是一个专业的翻译。请将以下中文翻译成英文。只输出翻译结果，不要任何额外解释。'
                   : '你是一个专业的翻译。请将以下英文翻译成中文。只输出翻译结果，不要任何额外解释。';
                 const prompt = [
                   { role: 'system', content: sysPrompt },
-                  { role: 'user', content: translateText }
+                  { role: 'user', content: textToTranslate }
                 ];
                 runtime.sendMessage({ type: 'LLM_COMPLETION', messages: prompt, taskId: 'translate' });
              }

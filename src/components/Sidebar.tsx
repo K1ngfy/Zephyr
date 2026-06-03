@@ -15,9 +15,9 @@ interface SidebarProps {
   translateText?: string;
   translateLlmOutput?: string;
   translateMode?: 'en2zh' | 'zh2en';
-  onTranslateModeChange?: (mode: 'en2zh' | 'zh2en') => void;
+  onTranslateModeChange?: (mode: 'en2zh' | 'zh2en', textOverride?: string) => void;
   onTranslateChange?: (text: string) => void;
-  onTranslateTrigger?: () => void;
+  onTranslateTrigger?: (textOverride?: string, modeOverride?: string) => void;
   
   // Handlers
   onClose: () => void;
@@ -104,8 +104,21 @@ export default function Sidebar({
   const displayTranslateOutput = selectedHistory?.type === 'translate' ? selectedHistory.data.translate : translateLlmOutput;
   const displayTranslateMode = selectedHistory?.type === 'translate' ? selectedHistory.data.mode : translateMode;
 
-  const currentTextRef = React.useRef({ explainText, translateText, translateMode });
-  currentTextRef.current = { explainText, translateText, translateMode };
+  const activeTranslateSessionRef = React.useRef({ text: '', mode: 'en2zh' });
+  const activeExplainSessionRef = React.useRef({ text: '' });
+
+  React.useEffect(() => {
+     if (explainLlmOutput === 'Thinking...') {
+        activeExplainSessionRef.current = { text: explainText };
+     }
+  }, [explainLlmOutput, explainText]);
+
+  const handleTranslateTrigger = (textOverride?: string, modeOverride?: string) => {
+     const t = textOverride || displayTranslateText;
+     const m = modeOverride || displayTranslateMode;
+     activeTranslateSessionRef.current = { text: t, mode: m };
+     onTranslateTrigger?.(t, m);
+  };
 
   const translateLlmOutputRef = React.useRef(translateLlmOutput);
   translateLlmOutputRef.current = translateLlmOutput;
@@ -187,14 +200,14 @@ export default function Sidebar({
            }, 100);
         }
         upsertHistory('explain', { 
-           text: currentTextRef.current.explainText, 
+           text: activeExplainSessionRef.current.text || currentTextRef.current.explainText, 
            explain: explainLlmOutputRef.current 
         }, Date.now().toString());
       } else if (req.type === 'LLM_DONE' && req.taskId === 'translate') {
         upsertHistory('translate', { 
-           text: currentTextRef.current.translateText, 
+           text: activeTranslateSessionRef.current.text || currentTextRef.current.translateText, 
            translate: translateLlmOutputRef.current, 
-           mode: currentTextRef.current.translateMode 
+           mode: activeTranslateSessionRef.current.mode || currentTextRef.current.translateMode 
         }, Date.now().toString());
       }
     };
@@ -476,7 +489,7 @@ export default function Sidebar({
            )}
 
            {activeTab === 'translate' && (
-             <div className="p-6 space-y-4 flex-1 flex flex-col h-full overflow-hidden">
+             <div className="p-6 space-y-4 flex flex-col">
                 <div className="flex bg-[#F5F5F7] p-1 rounded-xl gap-1 shrink-0">
                   <button 
                     onClick={() => {
@@ -504,7 +517,7 @@ export default function Sidebar({
                   </button>
                 </div>
                 
-                <div className="flex flex-col gap-4 flex-1">
+                <div className="flex flex-col gap-4">
                   <div className="flex flex-col gap-2">
                     <h4 className="text-[11px] uppercase tracking-wider font-bold text-[#86868B] flex items-center gap-1.5">
                       <Languages className="w-3.5 h-3.5" /> Source Text
@@ -523,11 +536,11 @@ export default function Sidebar({
                          }
                       }}
                       placeholder="Enter text to translate..."
-                      className="w-full min-h-[140px] flex-1 max-h-[300px] bg-[#F5F5F7] focus:bg-white p-4 rounded-xl text-[14px] leading-relaxed text-[#1D1D1F] border border-gray-100 focus:border-blue-200 outline-none resize-y transition-colors border-2 focus:ring-4 ring-blue-50/50"
+                      className="w-full min-h-[200px] bg-[#F5F5F7] focus:bg-white p-4 rounded-xl text-[14px] leading-relaxed text-[#1D1D1F] border border-gray-100 focus:border-blue-200 outline-none resize-y transition-colors border-2 focus:ring-4 ring-blue-50/50"
                     />
                   </div>
 
-                  <div className="flex items-center justify-between mt-2">
+                  <div className="flex items-center justify-between mt-2 flex-shrink-0">
                     <h4 className="text-[11px] uppercase tracking-wider font-bold text-[#0071E3] flex items-center gap-1.5">
                       {displayTranslateOutput && <><ArrowRightLeft className="w-3.5 h-3.5" /> Translation</>}
                     </h4>
@@ -535,20 +548,20 @@ export default function Sidebar({
                         if (selectedHistory) {
                            onTranslateChange?.(displayTranslateText);
                            if (onTranslateModeChange && selectedHistory.data.mode) {
-                              onTranslateModeChange(selectedHistory.data.mode);
+                              onTranslateModeChange?.(selectedHistory.data.mode, displayTranslateText);
                            }
                            setSelectedHistory(null);
                         }
-                        onTranslate?.(displayTranslateText, displayTranslateMode);
+                        handleTranslateTrigger();
                     }} className="bg-[#1D1D1F] hover:bg-[#000000] text-white px-4 py-1.5 rounded-lg text-[13px] font-medium flex items-center gap-1.5 shadow-sm active:opacity-80 transition-all">
                       <Sparkles className="w-3.5 h-3.5" /> 翻译
                     </button>
                   </div>
 
                   {displayTranslateOutput && (
-                    <div className="flex flex-col gap-2 flex-1 overflow-hidden min-h-0">
-                      <div className="bg-[#F5F5F7] flex-1 min-h-0 flex flex-col p-4 rounded-xl border border-gray-100 relative group overflow-hidden">
-                         <div className="text-[14px] text-[#424245] leading-relaxed zephyr-markdown selection:bg-blue-100 flex-1 overflow-y-auto">
+                    <div className="flex flex-col gap-2">
+                      <div className="bg-[#F5F5F7] flex-col p-4 rounded-xl border border-gray-100 relative group">
+                         <div className="text-[14px] text-[#424245] leading-relaxed zephyr-markdown selection:bg-blue-100 flex-col">
                             {displayTranslateOutput === 'Thinking...' ? (
                               <div className="flex items-center gap-2 text-[#86868B] font-medium py-2">
                                 <Loader2 className="w-4 h-4 animate-spin" /> Translating...
