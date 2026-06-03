@@ -57,7 +57,7 @@ const VOICES = [
 const PRESETS: Record<string, { url: string, model: string, name: string }> = {
   openai: { url: 'https://api.openai.com/v1/chat/completions', model: 'gpt-4o', name: 'OpenAI' },
   deepseek: { url: 'https://api.deepseek.com/chat/completions', model: 'deepseek-chat', name: 'DeepSeek' },
-  custom: { url: '', model: '', name: '自定义配置' }
+  custom: { url: '', model: '', name: 'Custom' }
 };
 
 export default function Settings({ config, onUpdate }: { config: any, onUpdate: (c: any) => void }) {
@@ -208,7 +208,7 @@ export default function Settings({ config, onUpdate }: { config: any, onUpdate: 
   };
 
   return (
-    <div className="w-full max-w-[800px] mx-auto bg-white rounded-[28px] shadow-2xl shadow-gray-200/50 flex flex-col overflow-hidden border border-white max-h-[90vh]">
+    <div className="w-full max-w-[800px] mx-auto bg-white rounded-[28px] shadow-2xl shadow-gray-200/50 flex flex-col overflow-hidden border border-white h-[80vh] min-h-[600px] max-h-[800px]">
       <div className="p-8 pb-4 shrink-0 border-b border-[#F5F5F7]">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 bg-[#1D1D1F] rounded-xl flex items-center justify-center shadow-md">
@@ -246,7 +246,7 @@ export default function Settings({ config, onUpdate }: { config: any, onUpdate: 
                     <option value="volcengine">火山引擎推理 (Doubao)</option>
                     <option value="openai">OpenAI</option>
                     <option value="deepseek">DeepSeek</option>
-                    <option value="custom">自定义配置</option>
+                    <option value="custom">Custom</option>
                  </select>
                </div>
 

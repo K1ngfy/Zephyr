@@ -224,8 +224,8 @@ export default function ContentApp() {
         <div 
           className="absolute bg-[#1D1D1F] rounded-xl shadow-xl flex items-center p-1.5 gap-1 z-[2147483647] animate-in fade-in duration-200"
           style={{
-            top: quickAction.rect.top > 60 ? quickAction.rect.top + window.scrollY - 50 : quickAction.rect.bottom + window.scrollY + 10,
-            left: quickAction.rect.left + window.scrollX + (quickAction.rect.width / 2) - 60,
+            top: quickAction.rect.top > 60 ? quickAction.rect.top - 50 : quickAction.rect.bottom + 10,
+            left: quickAction.rect.left + (quickAction.rect.width / 2) - 60,
           }}
         >
           <button 

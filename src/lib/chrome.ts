@@ -6,8 +6,10 @@ export const storage = {
       if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
         return await chrome.storage.local.get(keys);
       }
-    } catch(e) {
-      console.error("Chrome storage get error", e);
+    } catch(e: any) {
+      if (!e.message?.includes('Extension context invalidated')) {
+        console.error("Chrome storage get error", e);
+      }
       return {};
     }
     

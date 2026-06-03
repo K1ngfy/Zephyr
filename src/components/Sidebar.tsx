@@ -200,14 +200,14 @@ export default function Sidebar({
            }, 100);
         }
         upsertHistory('explain', { 
-           text: activeExplainSessionRef.current.text || currentTextRef.current.explainText, 
+           text: activeExplainSessionRef.current.text || explainText, 
            explain: explainLlmOutputRef.current 
         }, Date.now().toString());
       } else if (req.type === 'LLM_DONE' && req.taskId === 'translate') {
         upsertHistory('translate', { 
-           text: activeTranslateSessionRef.current.text || currentTextRef.current.translateText, 
+           text: activeTranslateSessionRef.current.text || displayTranslateText, 
            translate: translateLlmOutputRef.current, 
-           mode: activeTranslateSessionRef.current.mode || currentTextRef.current.translateMode 
+           mode: activeTranslateSessionRef.current.mode || displayTranslateMode 
         }, Date.now().toString());
       }
     };
@@ -308,7 +308,6 @@ export default function Sidebar({
                         } else {
                            setSelectedHistory(h);
                         }
-                        setShowHistory(false);
                      }}
                      className="bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex flex-col gap-2 cursor-pointer hover:border-blue-200 hover:shadow-md transition-all group"
                    >
@@ -536,7 +535,7 @@ export default function Sidebar({
                          }
                       }}
                       placeholder="Enter text to translate..."
-                      className="w-full min-h-[200px] bg-[#F5F5F7] focus:bg-white p-4 rounded-xl text-[14px] leading-relaxed text-[#1D1D1F] border-2 border-transparent focus:border-[#0071E3] focus:shadow-[0_0_0_4px_rgba(0,113,227,0.15)] outline-none resize-y transition-all"
+                      className="w-full min-h-[200px] bg-[#F5F5F7] p-4 rounded-xl text-[14px] leading-relaxed text-[#1D1D1F] border-2 border-transparent focus:border-[#0071E3] focus:shadow-[0_0_0_4px_rgba(0,113,227,0.15)] outline-none resize-y transition-all"
                     />
                   </div>
 

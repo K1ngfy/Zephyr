@@ -25,8 +25,8 @@ export default function Popover({ rect, type, text, llmOutput, ttsState, ttsChun
       setSaved(isFav);
     });
     
-    const top = rect.bottom + window.scrollY + 10;
-    let left = rect.left + window.scrollX;
+    const top = rect.bottom + 10;
+    let left = rect.left;
     
     // Prevent rendering offscreen
     if (left + 288 > window.innerWidth) {
