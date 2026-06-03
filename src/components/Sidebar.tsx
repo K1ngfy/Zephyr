@@ -536,7 +536,7 @@ export default function Sidebar({
                          }
                       }}
                       placeholder="Enter text to translate..."
-                      className="w-full min-h-[200px] bg-[#F5F5F7] focus:bg-white p-4 rounded-xl text-[14px] leading-relaxed text-[#1D1D1F] border border-gray-100 focus:border-blue-200 outline-none resize-y transition-colors border-2 focus:ring-4 ring-blue-50/50"
+                      className="w-full min-h-[200px] bg-[#F5F5F7] focus:bg-white p-4 rounded-xl text-[14px] leading-relaxed text-[#1D1D1F] border-2 border-transparent focus:border-[#0071E3] focus:shadow-[0_0_0_4px_rgba(0,113,227,0.15)] outline-none resize-y transition-all"
                     />
                   </div>
 
