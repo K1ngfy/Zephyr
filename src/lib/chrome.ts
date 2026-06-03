@@ -36,8 +36,10 @@ export const storage = {
       if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
         return await chrome.storage.local.set(items);
       }
-    } catch(e) {
-      console.error("Chrome storage set error", e);
+    } catch(e: any) {
+      if (!e.message?.includes('Extension context invalidated')) {
+        console.error("Chrome storage set error", e);
+      }
       return;
     }
     
@@ -68,11 +70,17 @@ export const runtime = {
       try {
         const result = chrome.runtime.sendMessage(message);
         if (result && typeof result.catch === 'function') {
-           result.catch((e: any) => console.error("Chrome sendMessage returned error", e));
+           result.catch((e: any) => {
+             if (!e.message?.includes('Extension context invalidated')) {
+               console.error("Chrome sendMessage returned error", e);
+             }
+           });
         }
         return result;
-      } catch (e) {
-        console.error("Chrome sendMessage sync error", e);
+      } catch (e: any) {
+        if (!e.message?.includes('Extension context invalidated')) {
+          console.error("Chrome sendMessage sync error", e);
+        }
         return Promise.resolve();
       }
     }
@@ -89,9 +97,9 @@ export const runtime = {
       }
     },
     removeListener: (callback: MessageListener) => {
-      if (isExtension) {
+      if (isExtension && typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
         chrome.runtime.onMessage.removeListener(callback);
-      } else {
+      } else if (!isExtension) {
         const i = runtimeListeners.indexOf(callback);
         if (i >= 0) runtimeListeners.splice(i, 1);
       }
@@ -105,11 +113,17 @@ export const tabs = {
       try {
         const result = chrome.tabs.sendMessage(tabId, message);
         if (result && typeof result.catch === 'function') {
-           result.catch((e: any) => console.error("Chrome tabs.sendMessage returned error", e));
+           result.catch((e: any) => {
+             if (!e.message?.includes('Extension context invalidated')) {
+               console.error("Chrome tabs.sendMessage returned error", e);
+             }
+           });
         }
         return result;
-      } catch (e) {
-        console.error("Chrome tabs.sendMessage sync error", e);
+      } catch (e: any) {
+        if (!e.message?.includes('Extension context invalidated')) {
+          console.error("Chrome tabs.sendMessage sync error", e);
+        }
         return Promise.resolve();
       }
     }
@@ -127,9 +141,9 @@ export const tabs = {
       }
     },
     removeListener: (callback: MessageListener) => {
-      if (isExtension) {
+      if (isExtension && typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
         chrome.runtime.onMessage.removeListener(callback);
-      } else {
+      } else if (!isExtension) {
         const i = tabsListeners.indexOf(callback);
         if (i >= 0) tabsListeners.splice(i, 1);
       }

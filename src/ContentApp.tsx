@@ -63,7 +63,11 @@ export default function ContentApp() {
        };
        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
           chrome.storage.onChanged.addListener(handleStorageChange);
-          return () => chrome.storage.onChanged.removeListener(handleStorageChange);
+          return () => {
+             if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+                chrome.storage.onChanged.removeListener(handleStorageChange);
+             }
+          };
        }
      } catch (e) {
        console.error("Storage error:", e);
