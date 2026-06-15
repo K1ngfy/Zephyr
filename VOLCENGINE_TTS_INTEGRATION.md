@@ -1,6 +1,6 @@
 # 火山引擎 (Volcengine) TTS 语音合成接口对接指南
 
-此文档基于本项目的语音合成模块，梳理总结了接驳火山引擎 TTS (Text-to-Speech) 的相关配置项和前/后端对接代码参考，以便在其他产品中快速接入并复用此服务，并为用户提供相关配置功能。
+此文档梳理总结了接驳火山引擎 TTS (Text-to-Speech) 的相关配置项和前/后端对接代码参考，以便在其他产品中快速接入并复用此服务，并为用户提供相关配置功能。
 
 ## 1. 所需用户配置参数 (Credentials & Config)
 
@@ -126,3 +126,75 @@ while (true) {
 1. **AbortController 中断支持**：TTS 常常耗时并且用户随时可能取消（比如随时换另外一句或关闭对话框）。建议在请求发起时携带 `AbortController` 信号（`signal: controller.signal`），以便随时可手动抛出 `abort()` 中断底层 HTTP 链接。
 2. **Audio 拼接播放体验**：为了降低首字出现时间，最好不用等完整流结束。每次解析到 Base64 chunk，都可以转换成 `ArrayBuffer` 或者 `Blob` 放进音频队列，由 `AudioContext` 或者 `HTMLAudioElement` 无缝接轨播放。
 3. **接口超时设定**：流建立之前设定合理的超时（如 10s 或 15s），以免受网络波动影响阻塞后续操作。
+
+## 5. 附录：当前系统内嵌音色与情绪列表参考
+
+### 5.1 支持的音色 (Voices)
+以下为本系统默认支持及配置的火山引擎推荐大语言模型 TTS 音色：
+
+| 音色名称 | 音色 ID / Speaker |
+| :--- | :--- |
+| Vivi 2.0 | `zh_female_vv_uranus_bigtts` |
+| 小何 2.0 | `zh_female_xiaohe_uranus_bigtts` |
+| 魅力苏菲 2.0 | `zh_female_sophie_uranus_bigtts` |
+| 清新女声 2.0 | `zh_female_qingxinnvsheng_uranus_bigtts` |
+| 知性灿灿 2.0 | `zh_female_cancan_uranus_bigtts` |
+| 撒娇学妹 2.0 | `zh_female_sajiaoxuemei_uranus_bigtts` |
+| 甜美小源 2.0 | `zh_female_tianmeixiaoyuan_uranus_bigtts` |
+| 甜美桃子 2.0 | `zh_female_tianmeitaozi_uranus_bigtts` |
+| 爽快思思 2.0 | `zh_female_shuangkuaisisi_uranus_bigtts` |
+| Tina老师 2.0 | `zh_female_yingyujiaoxue_uranus_bigtts` |
+| 暖阳女声 2.0 | `zh_female_kefunvsheng_uranus_bigtts` |
+| 鸡汤女 2.0 | `zh_female_jitangnv_uranus_bigtts` |
+| 魅力女友 2.0 | `zh_female_meilinvyou_uranus_bigtts` |
+| 流畅女声 2.0 | `zh_female_liuchangnv_uranus_bigtts` |
+| 高冷御姐 2.0 | `zh_female_gaolengyujie_uranus_bigtts` |
+| 温柔淑女 2.0 | `zh_female_wenroushunv_uranus_bigtts` |
+| 萌丫头/Cutey 2.0 | `zh_female_mengyatou_uranus_bigtts` |
+| 贴心女声/Candy 2.0 | `zh_female_tiexinnvsheng_uranus_bigtts` |
+| 鸡汤妹妹/Hope 2.0 | `zh_female_jitangmei_uranus_bigtts` |
+| 开朗姐姐 2.0 | `zh_female_kailangjiejie_uranus_bigtts` |
+| 高冷沉稳 2.0 | `zh_male_gaolengchenwen_uranus_bigtts` |
+| 娇喘女声 2.0 | `zh_female_jiaochuannv_uranus_bigtts` |
+| 林潇 2.0 | `zh_female_linxiao_uranus_bigtts` |
+| 玲玲姐姐 2.0 | `zh_female_lingling_uranus_bigtts` |
+| 春日部姐姐 2.0 | `zh_female_chunribu_uranus_bigtts` |
+| 感冒电音姐姐 2.0 | `zh_female_ganmaodianyin_uranus_bigtts` |
+| 谄媚女声 2.0 | `zh_female_chanmeinv_uranus_bigtts` |
+| 亲切女声 2.0 | `zh_female_qinqienv_uranus_bigtts` |
+| 知性女声 2.0 | `zh_female_zhixingnv_uranus_bigtts` |
+| 清澈梓梓 2.0 | `zh_female_qingchezizi_uranus_bigtts` |
+| 甜美悦悦 2.0 | `zh_female_tianmeiyueyue_uranus_bigtts` |
+| 柔美女友 2.0 | `zh_female_roumeinvyou_uranus_bigtts` |
+| 温柔小雅 2.0 | `zh_female_wenrouxiaoya_uranus_bigtts` |
+| 天才童声 2.0 | `zh_male_tiancaitongsheng_uranus_bigtts` |
+| 武则天 2.0 | `zh_female_wuzetian_uranus_bigtts` |
+| 顾姐 2.0 | `zh_female_gujie_uranus_bigtts` |
+| 少儿故事 2.0 | `zh_female_shaoergushi_uranus_bigtts` |
+| 调皮公主 | `saturn_zh_female_tiaopigongzhu_tob` |
+| 傲娇女友 2.0 | `saturn_zh_female_aojiaonvyou_tob` |
+| 病娇姐姐 2.0 | `saturn_zh_female_bingjiaojiejie_tob` |
+| 成熟姐姐 2.0 | `saturn_zh_female_chengshujiejie_tob` |
+| 可爱女生 2.0 | `saturn_zh_female_keainvsheng_tob` |
+| 暖心学姐 2.0 | `saturn_zh_female_nuanxinxuejie_tob` |
+| 贴心女友 2.0 | `saturn_zh_female_tiexinnvyou_tob` |
+| 温柔文雅 2.0 | `saturn_zh_female_wenrouwenya_tob` |
+| 妩媚御姐 2.0 | `saturn_zh_female_wumeiyujie_tob` |
+| 性感御姐 2.0 | `saturn_zh_female_xingganyujie_tob` |
+
+### 5.2 支持的情绪 (Emotions)
+根据火山引擎各音色的不同，部分音色支持情感调节。可以在请求参数 `emotion` 中填入如下值进行测试：
+
+| 情绪标识 | 情绪描述含义 |
+| :--- | :--- |
+| `neutral`或`none` | 中性 (Neutral) - 默认 |
+| `happy` | 愉悦 (Happy) |
+| `angry` | 愤怒 (Angry) |
+| `sad` | 悲伤 (Sad) |
+| `excited` | 兴奋 (Excited) |
+| `chat` | 闲聊 (Chat) |
+| `ASMR` | 低语 (ASMR) |
+| `warm` | 温暖 (Warm) |
+| `affectionate` | 深情 (Affectionate) |
+| `Authoritative`| 权威 (Authoritative) |
+
