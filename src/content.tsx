@@ -7,7 +7,17 @@ import ContentApp from './ContentApp';
 import styles from './index.css?inline';
 
 // Ensure we only inject once
-if (!document.getElementById('zephyr-extension-root')) {
+(function initZephyrExtension() {
+  if (document.getElementById('zephyr-extension-root')) {
+    return;
+  }
+
+  // Abort if this is not a standard HTML document (e.g. an SVG or XML file)
+  if (!document.body || document.contentType === 'image/svg+xml' || document.contentType === 'application/xml') {
+    console.log('Zephyr: Skipping injection on non-HTML document');
+    return;
+  }
+
   const container = document.createElement('div');
   container.id = 'zephyr-extension-root';
   // Use z-index that guarantees floating above everything
@@ -54,4 +64,4 @@ if (!document.getElementById('zephyr-extension-root')) {
   shadow.appendChild(reactRoot);
 
   createRoot(reactRoot).render(<ContentApp />);
-}
+})();
