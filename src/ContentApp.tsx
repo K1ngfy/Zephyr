@@ -94,7 +94,7 @@ export default function ContentApp() {
         streamerRef.current = new AudioStreamer();
         streamerRef.current.onStateChange = setTtsState;
         setTtsChunks([]);
-        runtime.sendMessage({ type: 'TTS_START', text: request.text });
+        runtime.sendMessage({ type: 'TTS_START', text: request.text })?.catch((e: any) => alert(e.message || String(e)));
       } else if (request.type === 'CMD_EXPLAIN_READ') {
         const selection = window.getSelection();
         if (!selection || selection.isCollapsed) return;
@@ -111,7 +111,7 @@ export default function ContentApp() {
           { role: 'system', content: '你是一个专业的英语助教。请仔细分析用户发送的英语文本，提供准确流畅的中文翻译，并对其中较难的单词或语法结构进行中文讲解介绍。切记：只进行语言层面的翻译和语法解释，不要对文本内容进行事实性的拓展或解释。排版清晰整洁。' },
           { role: 'user', content: request.text }
         ];
-        runtime.sendMessage({ type: 'LLM_COMPLETION', messages: prompt, taskId: 'explain' });
+        runtime.sendMessage({ type: 'LLM_COMPLETION', messages: prompt, taskId: 'explain' })?.catch((e: any) => { setLlmOutput(`Error: ${e.message || String(e)}`); });
       } else if (request.type === 'TTS_CHUNK') {
         streamerRef.current?.addChunk(request.chunk);
         setTtsChunks(prev => [...prev, request.chunk]);
@@ -209,7 +209,7 @@ export default function ContentApp() {
       ttsChunks.forEach(chunk => streamerRef.current?.addChunk(chunk));
       streamerRef.current?.signalDone();
     } else {
-      runtime.sendMessage({ type: 'TTS_START', text: popover.text });
+      runtime.sendMessage({ type: 'TTS_START', text: popover.text })?.catch((e: any) => alert(e.message || String(e)));
     }
   };
 
@@ -243,7 +243,7 @@ export default function ContentApp() {
                 streamerRef.current = new AudioStreamer();
                 streamerRef.current.onStateChange = setTtsState;
                 setTtsChunks([]);
-                runtime.sendMessage({ type: 'TTS_START', text: quickAction.text });
+                runtime.sendMessage({ type: 'TTS_START', text: quickAction.text })?.catch((e: any) => alert(e.message || String(e)));
              }}
              className="p-2 hover:bg-white/20 text-white rounded-lg transition-colors flex items-center justify-center cursor-pointer border-none"
           >
@@ -265,7 +265,7 @@ export default function ContentApp() {
                   { role: 'system', content: '你是一个专业的英语助教。请仔细分析用户发送的英语文本，提供准确流畅的中文翻译，并对其中较难的单词或语法结构进行中文讲解介绍。切记：只进行语言层面的翻译和语法解释，不要对文本内容进行事实性的拓展或解释。排版清晰整洁。' },
                   { role: 'user', content: quickAction.text }
                 ];
-                runtime.sendMessage({ type: 'LLM_COMPLETION', messages: prompt, taskId: 'explain' });
+                runtime.sendMessage({ type: 'LLM_COMPLETION', messages: prompt, taskId: 'explain' })?.catch((e: any) => alert(e.message || String(e)));
              }}
              className="p-2 hover:bg-white/20 text-white rounded-lg transition-colors flex items-center justify-center cursor-pointer border-none"
           >
@@ -295,7 +295,7 @@ export default function ContentApp() {
                   { role: 'system', content: sysPrompt },
                   { role: 'user', content: quickAction.text }
                 ];
-                runtime.sendMessage({ type: 'LLM_COMPLETION', messages: prompt, taskId: 'translate' });
+                runtime.sendMessage({ type: 'LLM_COMPLETION', messages: prompt, taskId: 'translate' })?.catch((e: any) => { setTranslateLlmOutput(`Error: ${e.message || String(e)}`); });
              }}
              className="p-2 hover:bg-white/20 text-white rounded-lg transition-colors flex items-center justify-center cursor-pointer border-none"
           >
@@ -361,7 +361,7 @@ export default function ContentApp() {
                   { role: 'system', content: sysPrompt },
                   { role: 'user', content: textToTranslate }
                 ];
-                runtime.sendMessage({ type: 'LLM_COMPLETION', messages: prompt, taskId: 'translate' });
+                runtime.sendMessage({ type: 'LLM_COMPLETION', messages: prompt, taskId: 'translate' })?.catch((e: any) => { setTranslateLlmOutput(`Error: ${e.message || String(e)}`); });
              }
           }}
           onClose={() => setSidebarOpen(false)}
@@ -375,7 +375,7 @@ export default function ContentApp() {
               streamerRef.current?.signalDone();
             } else if (text) {
               setTtsChunks([]);
-              runtime.sendMessage({ type: 'TTS_START', text });
+              runtime.sendMessage({ type: 'TTS_START', text })?.catch((e: any) => alert(e.message || String(e)));
             }
           }}
         />

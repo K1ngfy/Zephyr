@@ -260,7 +260,7 @@ export default function Sidebar({
 
     if (chatInput.startsWith('/read ')) {
       const text = chatInput.slice(6);
-      runtime.sendMessage({ type: 'TTS_START', text });
+      runtime.sendMessage({ type: 'TTS_START', text })?.catch((e: any) => alert(e.message || String(e)));
       setChatInput('');
       return;
     }
@@ -272,7 +272,10 @@ export default function Sidebar({
     upsertHistory('chat', { messages: newArr }, chatIdRef.current);
 
     const prompt = newArr;
-    runtime.sendMessage({ type: 'LLM_COMPLETION', messages: prompt, taskId: 'chat' });
+    runtime.sendMessage({ type: 'LLM_COMPLETION', messages: prompt, taskId: 'chat' })?.catch((e: any) => {
+       setChatMessages(prev => [...prev, { role: 'assistant', content: `Error: ${e.message || String(e)}` }]);
+       setChatLoading(false);
+    });
   };
 
   return (

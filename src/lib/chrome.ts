@@ -71,22 +71,25 @@ export const runtime = {
         try {
           const result = chrome.runtime.sendMessage(message);
           if (result && typeof result.catch === 'function') {
-             result.catch((e: any) => {
-               if (!e.message?.includes('Extension context invalidated')) {
-                 console.error("Chrome sendMessage returned error", e);
+             return result.catch((e: any) => {
+               if (e.message?.includes('Extension context invalidated')) {
+                 return Promise.reject(new Error("插件已更新，请刷新当前页面重试 (Extension context invalidated)"));
                }
+               console.error("Chrome sendMessage returned error", e);
+               return Promise.reject(e);
              });
           }
           return result;
         } catch (e: any) {
-          if (!e.message?.includes('Extension context invalidated')) {
-            console.error("Chrome sendMessage sync error", e);
+          if (e.message?.includes('Extension context invalidated')) {
+             return Promise.reject(new Error("插件已更新，请刷新当前页面重试 (Extension context invalidated)"));
           }
-          return Promise.resolve();
+          console.error("Chrome sendMessage sync error", e);
+          return Promise.reject(e);
         }
       } else {
         console.warn("Chrome runtime or sendMessage is undefined (context invalidated?)");
-        return Promise.resolve();
+        return Promise.reject(new Error("插件已更新，请刷新当前页面重试 (Extension context invalidated)"));
       }
     }
     console.log("[Mock Chrome] runtime.sendMessage:", message);
