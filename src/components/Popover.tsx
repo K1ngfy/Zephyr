@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Square, Loader2, X, Play, Bookmark } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
+import { MarkdownRenderer } from './MarkdownRenderer';
 import { storage } from '../lib/chrome';
 
 interface PopoverProps {
@@ -142,7 +142,7 @@ export default function Popover({ rect, type, text, llmOutput, ttsState, ttsChun
                 <Loader2 className="w-4 h-4 animate-spin" /> Thinking...
               </div>
             ) : (
-              <ReactMarkdown>{llmOutput}</ReactMarkdown>
+              <MarkdownRenderer content={llmOutput} />
             )}
         </div>
       </div>

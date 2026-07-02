@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Sparkles, MessageSquareText, Bookmark, MessageCircle, Play, Trash2, Send, Loader2, ArrowRightLeft, Languages, Pin, PinOff, Copy, Check, History, MessageSquarePlus, Volume2, VolumeX, RotateCcw } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
+import { MarkdownRenderer } from './MarkdownRenderer';
 import { storage, runtime } from '../lib/chrome';
 
 interface SidebarProps {
@@ -428,7 +428,7 @@ export default function Sidebar({
                              }`}>
                                 {m.role === 'user' ? m.content : (
                                   <div className="flex flex-col gap-2">
-                                    <div className="zephyr-markdown"><ReactMarkdown>{m.content}</ReactMarkdown></div>
+                                    <MarkdownRenderer content={m.content} />
                                     <div className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-200">
                                        <button onClick={() => navigator.clipboard.writeText(m.content)} className="p-1 px-2 hover:bg-white text-gray-500 rounded-lg transition-colors text-[11px] font-medium shadow-sm" title="Copy text">
                                          <Copy className="w-3.5 h-3.5" />
@@ -506,7 +506,7 @@ export default function Sidebar({
                          </div>
                        ) : (
                          <>
-                           <div className="zephyr-markdown"><ReactMarkdown>{displayExplainOutput}</ReactMarkdown></div>
+                           <MarkdownRenderer content={displayExplainOutput} />
                            <div className="flex items-center gap-1 mt-4 pt-4 border-t border-gray-100">
                              <button onClick={() => navigator.clipboard.writeText(displayExplainOutput)} className="p-1.5 hover:bg-gray-100 text-[#86868B] hover:text-[#1D1D1F] rounded-lg transition-colors text-[12px] font-medium" title="Copy text">
                                <Copy className="w-4 h-4" />
@@ -602,17 +602,17 @@ export default function Sidebar({
                                 <Loader2 className="w-4 h-4 animate-spin" /> Translating...
                               </div>
                             ) : (
-                              <>
-                                <div className="zephyr-markdown"><ReactMarkdown>{displayTranslateOutput}</ReactMarkdown></div>
+                              <React.Fragment>
+                                <MarkdownRenderer content={displayTranslateOutput} hideThink={true} />
                                 <div className="flex items-center gap-1 mt-4 pt-4 border-t border-gray-200">
-                                  <button onClick={() => navigator.clipboard.writeText(displayTranslateOutput)} className="p-1.5 hover:bg-gray-200 text-[#86868B] hover:text-[#1D1D1F] rounded-lg transition-colors text-[12px] font-medium shadow-sm" title="Copy text">
+                                  <button onClick={() => navigator.clipboard.writeText(displayTranslateOutput.replace(/<think>[\s\S]*?(?:<\/think>|$)/gi, '').trim())} className="p-1.5 hover:bg-gray-200 text-[#86868B] hover:text-[#1D1D1F] rounded-lg transition-colors text-[12px] font-medium shadow-sm" title="Copy text">
                                     <Copy className="w-4 h-4" />
                                   </button>
-                                  <button onClick={() => handlePlayTTS([], displayTranslateOutput)} className={`p-1.5 hover:bg-gray-200 rounded-lg transition-colors text-[12px] font-medium shadow-sm flex items-center ${playingTextId === displayTranslateOutput && ttsState === 'playing' ? 'text-blue-500' : 'text-[#86868B] hover:text-[#1D1D1F]'}`} title="Play audio">
+                                  <button onClick={() => handlePlayTTS([], displayTranslateOutput.replace(/<think>[\s\S]*?(?:<\/think>|$)/gi, '').trim())} className={`p-1.5 hover:bg-gray-200 rounded-lg transition-colors text-[12px] font-medium shadow-sm flex items-center ${playingTextId === displayTranslateOutput && ttsState === 'playing' ? 'text-blue-500' : 'text-[#86868B] hover:text-[#1D1D1F]'}`} title="Play audio">
                                     {playingTextId === displayTranslateOutput && ttsState === 'playing' ? <Volume2 className="w-4 h-4 animate-pulse" /> : playingTextId === displayTranslateOutput && ttsState === 'idle' ? <RotateCcw className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                                   </button>
                                 </div>
-                              </>
+                              </React.Fragment>
                             )}
                          </div>
                       </div>
@@ -664,7 +664,7 @@ export default function Sidebar({
                         <div className="text-[14px] font-medium text-[#1D1D1F] leading-relaxed">"{fav.text}"</div>
                         {fav.explain && (
                           <div className="pt-3 border-t border-gray-50 text-[13px] text-[#424245] zephyr-markdown mt-2">
-                            <div className="zephyr-markdown"><ReactMarkdown>{fav.explain}</ReactMarkdown></div>
+                            <MarkdownRenderer content={fav.explain} />
                           </div>
                         )}
                         

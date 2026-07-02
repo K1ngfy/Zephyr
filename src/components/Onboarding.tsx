@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, Check, Activity, X, Cpu, Volume2, Network, Play, Square, Settings2 } from 'lucide-react';
 import { storage } from '../lib/chrome';
-import { testLLMConnection, testVolcengineTTS } from '../lib/volcengine';
+import { testLLMConnection, testVolcengineTTS, fetchCustomModels } from '../lib/volcengine';
 import { AudioStreamer } from '../lib/audio';
 
 const VOICES = [
@@ -57,6 +57,10 @@ const VOICES = [
 const PRESETS: Record<string, { url: string, model: string, name: string }> = {
   openai: { url: 'https://api.openai.com/v1/chat/completions', model: 'gpt-4o', name: 'OpenAI' },
   deepseek: { url: 'https://api.deepseek.com/chat/completions', model: 'deepseek-chat', name: 'DeepSeek' },
+  zhipu: { url: 'https://open.bigmodel.cn/api/paas/v4/chat/completions', model: 'glm-4-flash', name: '智谱 (Zhipu)' },
+  minimax: { url: 'https://api.minimax.chat/v1/text/chatcompletion_v2', model: 'abab6.5s-chat', name: 'MiniMax' },
+  kimi: { url: 'https://api.moonshot.cn/v1/chat/completions', model: 'moonshot-v1-8k', name: 'Kimi' },
+  mimo: { url: 'https://api.mimo.chat/v1/chat/completions', model: 'mimo-chat', name: 'Mimo' },
   custom: { url: '', model: '', name: 'Custom' }
 };
 
@@ -75,6 +79,23 @@ export default function Onboarding({ onComplete }: { onComplete: (config: any) =
   const [customUrl, setCustomUrl] = useState('');
   const [customKey, setCustomKey] = useState('');
   const [customModel, setCustomModel] = useState('');
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [fetchingModels, setFetchingModels] = useState(false);
+
+  const handleFetchModels = async () => {
+    if (!customUrl || !customKey) return;
+    setFetchingModels(true);
+    const res = await fetchCustomModels(customUrl, customKey);
+    if (res.models) {
+       setAvailableModels(res.models);
+       if (res.models.length > 0 && (!customModel || !res.models.includes(customModel))) {
+          setCustomModel(res.models[0]);
+       }
+    } else {
+       alert(res.error || 'Failed to fetch models');
+    }
+    setFetchingModels(false);
+  };
 
   const [appId, setAppId] = useState('');
   const [token, setToken] = useState('');
@@ -231,6 +252,10 @@ export default function Onboarding({ onComplete }: { onComplete: (config: any) =
                     <option value="volcengine">火山引擎推理 (Doubao)</option>
                     <option value="openai">OpenAI</option>
                     <option value="deepseek">DeepSeek</option>
+                    <option value="zhipu">智谱 (Zhipu)</option>
+                    <option value="minimax">MiniMax</option>
+                    <option value="kimi">Kimi</option>
+                    <option value="mimo">Mimo</option>
                     <option value="custom">Custom</option>
                  </select>
                </div>
@@ -259,8 +284,23 @@ export default function Onboarding({ onComplete }: { onComplete: (config: any) =
                       <input type="password" value={customKey} onChange={e => setCustomKey(e.target.value)} placeholder="sk-..." className="mt-1.5 w-full bg-[#F5F5F7] border-none rounded-xl px-4 py-3 text-[14px] focus:ring-1 focus:ring-[#0071E3] transition-all placeholder:text-[#86868B]/60 outline-none text-[#1D1D1F]" />
                    </label>
                    <label className="block">
-                      <span className="text-[11px] uppercase tracking-widest font-semibold text-[#86868B] ml-1">Model / 模型名称</span>
-                      <input type="text" value={customModel} onChange={e => setCustomModel(e.target.value)} placeholder="gpt-4o / claude-3-5 / deepseek-chat" className="mt-1.5 w-full bg-[#F5F5F7] border-none rounded-xl px-4 py-3 text-[14px] focus:ring-1 focus:ring-[#0071E3] transition-all placeholder:text-[#86868B]/60 outline-none text-[#1D1D1F]" />
+                      <div className="flex items-center justify-between ml-1 mb-1.5">
+                         <span className="text-[11px] uppercase tracking-widest font-semibold text-[#86868B]">Model / 模型名称</span>
+                         <button 
+                           onClick={handleFetchModels} 
+                           disabled={!customUrl || !customKey || fetchingModels}
+                           className="text-[11px] font-medium text-[#0071E3] hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                         >
+                           {fetchingModels ? <Activity className="w-3 h-3 animate-spin"/> : <Network className="w-3 h-3"/>}
+                           获取可用模型
+                         </button>
+                      </div>
+                      <input type="text" list="available-models-onboarding" value={customModel} onChange={e => setCustomModel(e.target.value)} placeholder="gpt-4o / claude-3-5 / deepseek-chat" className="w-full bg-[#F5F5F7] border-none rounded-xl px-4 py-3 text-[14px] focus:ring-1 focus:ring-[#0071E3] transition-all placeholder:text-[#86868B]/60 outline-none text-[#1D1D1F]" />
+                      <datalist id="available-models-onboarding">
+                        {availableModels.map(m => (
+                          <option key={m} value={m} />
+                        ))}
+                      </datalist>
                    </label>
                  </>
                )}

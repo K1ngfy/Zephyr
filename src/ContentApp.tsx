@@ -288,8 +288,8 @@ export default function ContentApp() {
                 setTranslateMode(mode);
                 
                 const sysPrompt = mode === 'zh2en' 
-                  ? '你是一个专业的翻译。请将以下中文翻译成英文。只输出翻译结果，不要任何额外解释。'
-                  : '你是一个专业的翻译。请将以下英文翻译成中文。只输出翻译结果，不要任何额外解释。';
+                  ? '你是一个专业的翻译。请将以下中文翻译成英文。只输出翻译结果，不要任何额外解释，不要进行内部思考或输出<think>标签及内容。'
+                  : '你是一个专业的翻译。请将以下英文翻译成中文。只输出翻译结果，不要任何额外解释，不要进行内部思考或输出<think>标签及内容。';
                 
                 const prompt = [
                   { role: 'system', content: sysPrompt },
@@ -355,8 +355,8 @@ export default function ContentApp() {
              if (textToTranslate) {
                 setTranslateLlmOutput('Thinking...');
                 const sysPrompt = modeToUse === 'zh2en' 
-                  ? '你是一个专业的翻译。请将以下中文翻译成英文。只输出翻译结果，不要任何额外解释。'
-                  : '你是一个专业的翻译。请将以下英文翻译成中文。只输出翻译结果，不要任何额外解释。';
+                  ? '你是一个专业的翻译。请将以下中文翻译成英文。只输出翻译结果，不要任何额外解释，不要进行内部思考或输出<think>标签及内容。'
+                  : '你是一个专业的翻译。请将以下英文翻译成中文。只输出翻译结果，不要任何额外解释，不要进行内部思考或输出<think>标签及内容。';
                 const prompt = [
                   { role: 'system', content: sysPrompt },
                   { role: 'user', content: textToTranslate }

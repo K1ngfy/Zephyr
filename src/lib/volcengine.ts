@@ -1,3 +1,39 @@
+export async function fetchCustomModels(baseUrl: string, key: string): Promise<{ models?: string[], error?: string }> {
+  try {
+    let url = baseUrl.trim();
+    if (url.endsWith('/chat/completions')) {
+      url = url.substring(0, url.length - '/chat/completions'.length);
+    }
+    if (!url.endsWith('/')) {
+      url += '/';
+    }
+    url += 'models';
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${key}`
+      },
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    
+    if (!res.ok) {
+       return { error: `HTTP ${res.status}: ${await res.text()}` };
+    }
+    const data = await res.json();
+    if (data.data && Array.isArray(data.data)) {
+       return { models: data.data.map((m: any) => m.id) };
+    }
+    return { error: 'Invalid response format' };
+  } catch (e: any) {
+    if (e.name === 'AbortError') return { error: 'Request timed out' };
+    return { error: e.message || 'Network error' };
+  }
+}
+
 export async function testLLMConnection(config: any) {
   let llmSuccess = false;
   let llmError = '';
