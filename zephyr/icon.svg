@@ -1,0 +1,62 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- 渐变定义 -->
+    <linearGradient id="bgGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f5f9fc"/>
+      <stop offset="100%" stop-color="#c9dbea"/>
+    </linearGradient>
+
+    <linearGradient id="zGradient" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#4fd1ff"/>
+      <stop offset="100%" stop-color="#1e6fff"/>
+    </linearGradient>
+
+    <linearGradient id="waveGradient" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#8fd3ff"/>
+      <stop offset="100%" stop-color="#3a8dff"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 圆角背景 -->
+  <rect x="0" y="0" width="128" height="128" rx="24" fill="url(#bgGradient)" />
+
+  <!-- Z 字母 -->
+  <path d="M36 40 
+           C48 30, 72 30, 92 36
+           L70 64
+           C60 76, 48 90, 36 96
+           C50 88, 64 80, 92 72"
+        fill="none"
+        stroke="url(#zGradient)"
+        stroke-width="10"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+
+  <!-- 波浪 -->
+  <path d="M20 90 
+           C40 80, 60 100, 80 90
+           S110 80, 110 90"
+        fill="none"
+        stroke="url(#waveGradient)"
+        stroke-width="6"
+        stroke-linecap="round"/>
+
+  <path d="M24 100 
+           C44 90, 64 110, 84 100
+           S112 90, 112 100"
+        fill="none"
+        stroke="#6bb6ff"
+        stroke-width="4"
+        opacity="0.7"
+        stroke-linecap="round"/>
+
+  <!-- 语音气泡 -->
+  <g transform="translate(88,72)">
+    <circle cx="12" cy="12" r="12" fill="url(#zGradient)" />
+    
+    <!-- 声波 -->
+    <rect x="6" y="8" width="2" height="8" rx="1" fill="white"/>
+    <rect x="10" y="6" width="2" height="12" rx="1" fill="white"/>
+    <rect x="14" y="9" width="2" height="6" rx="1" fill="white"/>
+  </g>
+</svg>

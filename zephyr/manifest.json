@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "Zephyr",
+  "version": "1.0",
+  "description": "Minimalist English speaking and listening assistant.",
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "contextMenus",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://openspeech.bytedance.com/*",
+    "https://ark.cn-beijing.volces.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "options_page": "index.html",
+  "action": {
+    "default_title": "Zephyr Settings",
+    "default_popup": "index.html"
+  },
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  }
+}
