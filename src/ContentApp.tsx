@@ -46,7 +46,7 @@ export default function ContentApp() {
          setShowPetIcon(res.showPetIcon !== false);
          setShortcutKey(res.shortcutKey || 'Alt+Z');
          setHiddenDomains(res.zephyr_hidden_domains || []);
-       }).catch((e) => console.error("Storage error:", e));
+       }).catch((e) => console.log("Storage error:", e));
        
        const handleStorageChange = (changes: any, areaName: string) => {
          if (areaName === 'local') {
@@ -70,7 +70,7 @@ export default function ContentApp() {
           };
        }
      } catch (e) {
-       console.error("Storage error:", e);
+       console.log("Storage error:", e);
      }
   }, []);
 
@@ -94,7 +94,7 @@ export default function ContentApp() {
         streamerRef.current = new AudioStreamer();
         streamerRef.current.onStateChange = setTtsState;
         setTtsChunks([]);
-        runtime.sendMessage({ type: 'TTS_START', text: request.text })?.catch((e: any) => alert(e.message || String(e)));
+        runtime.sendMessage({ type: 'TTS_START', text: request.text })?.catch((e: any) => console.log("[Zephyr] API call failed:", e.message || String(e)));
       } else if (request.type === 'CMD_EXPLAIN_READ') {
         const selection = window.getSelection();
         if (!selection || selection.isCollapsed) return;
@@ -209,7 +209,7 @@ export default function ContentApp() {
       ttsChunks.forEach(chunk => streamerRef.current?.addChunk(chunk));
       streamerRef.current?.signalDone();
     } else {
-      runtime.sendMessage({ type: 'TTS_START', text: popover.text })?.catch((e: any) => alert(e.message || String(e)));
+      runtime.sendMessage({ type: 'TTS_START', text: popover.text })?.catch((e: any) => console.log("[Zephyr] API call failed:", e.message || String(e)));
     }
   };
 
@@ -243,7 +243,7 @@ export default function ContentApp() {
                 streamerRef.current = new AudioStreamer();
                 streamerRef.current.onStateChange = setTtsState;
                 setTtsChunks([]);
-                runtime.sendMessage({ type: 'TTS_START', text: quickAction.text })?.catch((e: any) => alert(e.message || String(e)));
+                runtime.sendMessage({ type: 'TTS_START', text: quickAction.text })?.catch((e: any) => console.log("[Zephyr] API call failed:", e.message || String(e)));
              }}
              className="p-2 hover:bg-white/20 text-white rounded-lg transition-colors flex items-center justify-center cursor-pointer border-none"
           >
@@ -265,7 +265,7 @@ export default function ContentApp() {
                   { role: 'system', content: '你是一个专业的英语助教。请仔细分析用户发送的英语文本，提供准确流畅的中文翻译，并对其中较难的单词或语法结构进行中文讲解介绍。切记：只进行语言层面的翻译和语法解释，不要对文本内容进行事实性的拓展或解释。排版清晰整洁。' },
                   { role: 'user', content: quickAction.text }
                 ];
-                runtime.sendMessage({ type: 'LLM_COMPLETION', messages: prompt, taskId: 'explain' })?.catch((e: any) => alert(e.message || String(e)));
+                runtime.sendMessage({ type: 'LLM_COMPLETION', messages: prompt, taskId: 'explain' })?.catch((e: any) => console.log("[Zephyr] API call failed:", e.message || String(e)));
              }}
              className="p-2 hover:bg-white/20 text-white rounded-lg transition-colors flex items-center justify-center cursor-pointer border-none"
           >
@@ -375,7 +375,7 @@ export default function ContentApp() {
               streamerRef.current?.signalDone();
             } else if (text) {
               setTtsChunks([]);
-              runtime.sendMessage({ type: 'TTS_START', text })?.catch((e: any) => alert(e.message || String(e)));
+              runtime.sendMessage({ type: 'TTS_START', text })?.catch((e: any) => console.log("[Zephyr] API call failed:", e.message || String(e)));
             }
           }}
         />
@@ -412,7 +412,7 @@ export default function ContentApp() {
                        setHiddenDomains(newHiddenDomains);
                        try {
                            storage.set({ zephyr_hidden_domains: newHiddenDomains });
-                       } catch (e) { console.error(e); }
+                       } catch (e) { console.log(e); }
                        setShowPetCloseDialog(false);
                     }}
                     className="w-full py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-medium transition-colors text-sm"

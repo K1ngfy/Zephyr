@@ -138,7 +138,7 @@ export default function Sidebar({
       } else {
         newHistory = [newItem, ...prev].slice(0, 100);
       }
-      storage.set({ zephyr_history: newHistory }).catch(console.error);
+      storage.set({ zephyr_history: newHistory }).catch(console.log);
       return newHistory;
     });
   };
@@ -147,7 +147,7 @@ export default function Sidebar({
     storage.get(['zephyr_favorites', 'zephyr_history']).then(res => {
       if (res.zephyr_favorites) setFavorites(res.zephyr_favorites);
       if (res.zephyr_history) setHistory(res.zephyr_history);
-    }).catch(console.error);
+    }).catch(console.log);
 
     const handleStorageChange = (changes: any, areaName: string) => {
        if (areaName === 'local') {
@@ -260,7 +260,7 @@ export default function Sidebar({
 
     if (chatInput.startsWith('/read ')) {
       const text = chatInput.slice(6);
-      runtime.sendMessage({ type: 'TTS_START', text })?.catch((e: any) => alert(e.message || String(e)));
+      runtime.sendMessage({ type: 'TTS_START', text })?.catch((e: any) => console.log("[Zephyr] API call failed:", e.message || String(e)));
       setChatInput('');
       return;
     }

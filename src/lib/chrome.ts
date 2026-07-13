@@ -8,7 +8,7 @@ export const storage = {
       }
     } catch(e: any) {
       if (!e.message?.includes('Extension context invalidated')) {
-        console.error("Chrome storage get error", e);
+        console.log("[Zephyr] Chrome storage get error", e);
       }
       return {};
     }
@@ -38,7 +38,7 @@ export const storage = {
       }
     } catch(e: any) {
       if (!e.message?.includes('Extension context invalidated')) {
-        console.error("Chrome storage set error", e);
+        console.log("[Zephyr] Chrome storage set error", e);
       }
       return;
     }
@@ -75,7 +75,7 @@ export const runtime = {
                if (e.message?.includes('Extension context invalidated')) {
                  return Promise.reject(new Error("插件已更新，请刷新当前页面重试 (Extension context invalidated)"));
                }
-               console.error("Chrome sendMessage returned error", e);
+               console.log("[Zephyr] Chrome sendMessage returned error", e);
                return Promise.reject(e);
              });
           }
@@ -84,11 +84,11 @@ export const runtime = {
           if (e.message?.includes('Extension context invalidated')) {
              return Promise.reject(new Error("插件已更新，请刷新当前页面重试 (Extension context invalidated)"));
           }
-          console.error("Chrome sendMessage sync error", e);
+          console.log("[Zephyr] Chrome sendMessage sync error", e);
           return Promise.reject(e);
         }
       } else {
-        console.warn("Chrome runtime or sendMessage is undefined (context invalidated?)");
+        console.log("[Zephyr] Chrome runtime or sendMessage is undefined (context invalidated?)");
         return Promise.reject(new Error("插件已更新，请刷新当前页面重试 (Extension context invalidated)"));
       }
     }
@@ -128,19 +128,19 @@ export const tabs = {
           if (result && typeof result.catch === 'function') {
              result.catch((e: any) => {
                if (!e.message?.includes('Extension context invalidated')) {
-                 console.error("Chrome tabs.sendMessage returned error", e);
+                 console.log("[Zephyr] Chrome tabs.sendMessage returned error", e);
                }
              });
           }
           return result;
         } catch (e: any) {
           if (!e.message?.includes('Extension context invalidated')) {
-            console.error("Chrome tabs.sendMessage sync error", e);
+            console.log("[Zephyr] Chrome tabs.sendMessage sync error", e);
           }
           return Promise.resolve();
         }
       } else {
-        console.warn("Chrome tabs or sendMessage is undefined");
+        console.log("Chrome tabs or sendMessage is undefined");
         return Promise.resolve();
       }
     }

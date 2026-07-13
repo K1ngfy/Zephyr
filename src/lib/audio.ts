@@ -14,7 +14,7 @@ export class AudioStreamer {
       this.onStateChange?.('idle');
     };
     this.audio.onerror = (e) => {
-      console.error('Audio playback error', e);
+      console.log('Audio playback error', e);
       this.isPlaying = false;
       this.onStateChange?.('idle');
     };
@@ -54,12 +54,12 @@ export class AudioStreamer {
       this.isPlaying = true;
       this.onStateChange?.('playing');
       this.audio.play().catch(e => {
-        console.error('Play intercepted by browser', e);
+        console.log('Play intercepted by browser', e);
         this.isPlaying = false;
         this.onStateChange?.('idle');
       });
     } catch (e) {
-      console.error('Audio buffer processing error:', e);
+      console.log('Audio buffer processing error:', e);
     }
   }
 

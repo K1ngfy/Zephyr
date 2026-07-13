@@ -4,11 +4,11 @@
 try {
   if (typeof document !== 'undefined' && typeof document.createElement === 'function') {
     const testDiv = document.createElement('div');
-    if (!('style' in testDiv)) {
+    if (!testDiv.style) {
       const originalCreateElement = document.createElement;
       document.createElement = function(tagName, options) {
         const el = originalCreateElement.call(document, tagName, options);
-        if (!('style' in el)) {
+        if (!el.style) {
           Object.defineProperty(el, 'style', {
             value: {},
             writable: true,
